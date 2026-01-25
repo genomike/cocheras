@@ -63,4 +63,16 @@ public class CajonService : ICajonService
             await _unitOfWork.SaveChangesAsync(cancellationToken);
         }
     }
+
+    public async Task ResetearEstadoAsync(CancellationToken cancellationToken = default)
+    {
+        var cajones = await _unitOfWork.Cajones.GetAllAsync(cancellationToken);
+        foreach (var cajon in cajones)
+        {
+            cajon.Estado = EstadoCajon.Libre;
+            cajon.UltimoCambioEstado = DateTime.UtcNow;
+            _unitOfWork.Cajones.Update(cajon);
+        }
+        await _unitOfWork.SaveChangesAsync(cancellationToken);
+    }
 }

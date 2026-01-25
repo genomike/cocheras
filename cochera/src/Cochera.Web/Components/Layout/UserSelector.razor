@@ -1,22 +1,22 @@
-@using Radzen
-@using Radzen.Blazor
 @using Cochera.Application.DTOs
 @using Cochera.Web.Services
 @inject UsuarioActualService UsuarioActualService
 @inject NavigationManager NavigationManager
 
-<div style="padding: 1rem; background: var(--rz-panel-menu-background-color); border-top: 1px solid var(--rz-border-color);">
-    <RadzenText TextStyle="TextStyle.Caption" Style="margin-bottom: 0.5rem; color: var(--rz-text-secondary-color);">
-        Cambiar Usuario:
-    </RadzenText>
-    <RadzenDropDown TValue="int" 
-        @bind-Value="@usuarioSeleccionadoId" 
-        Data="@usuarios" 
-        TextProperty="Nombre" 
-        ValueProperty="Id" 
-        Placeholder="Seleccione usuario"
-        Style="width: 100%;" 
-        Change="@(EventCallback.Factory.Create<object>(this, OnUsuarioChanged))" />
+<div style="padding: 1rem; border-top: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.1);">
+    <label style="display: block; margin-bottom: 0.5rem; font-size: 0.8rem; color: rgba(255,255,255,0.7);">
+        👤 Cambiar Usuario:
+    </label>
+    <select @onchange="OnUsuarioChanged" 
+            style="width: 100%; padding: 0.5rem; border-radius: 4px; border: 1px solid rgba(255,255,255,0.3); background: #fff; cursor: pointer;">
+        <option value="0">-- Seleccione usuario --</option>
+        @foreach (var usuario in usuarios)
+        {
+            <option value="@usuario.Id" selected="@(usuario.Id == usuarioSeleccionadoId)">
+                @(usuario.EsAdmin ? "👑 " : "")@usuario.Nombre
+            </option>
+        }
+    </select>
 </div>
 
 @code {
@@ -33,22 +33,16 @@
         }
     }
 
-    private async Task OnUsuarioChanged(object value)
+    private async Task OnUsuarioChanged(ChangeEventArgs e)
     {
-        if (value is int id && id > 0)
+        if (int.TryParse(e.Value?.ToString(), out int id) && id > 0)
         {
             usuarioSeleccionadoId = id;
             await UsuarioActualService.CambiarUsuarioAsync(id);
             
-            // Navegar a la página principal del rol
-            if (UsuarioActualService.EsAdmin)
-            {
-                NavigationManager.NavigateTo("/admin/dashboard", forceLoad: true);
-            }
-            else
-            {
-                NavigationManager.NavigateTo("/usuario/disponibilidad", forceLoad: true);
-            }
+            // Navegar a la página principal del rol (sin forceLoad para mantener el estado)
+            var destino = UsuarioActualService.EsAdmin ? "/admin/dashboard" : "/usuario/disponibilidad";
+            NavigationManager.NavigateTo(destino);
         }
     }
 }

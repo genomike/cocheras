@@ -27,8 +27,8 @@
             }
         </RadzenStack>
     </RadzenHeader>
-    <RadzenSidebar @bind-Expanded="@sidebarExpanded">
-        <RadzenPanelMenu>
+    <RadzenSidebar @bind-Expanded="@sidebarExpanded" Style="display: flex; flex-direction: column;">
+        <RadzenPanelMenu Style="flex: 1;">
             @if (!UsuarioActualService.EstaLogueado)
             {
                 <!-- Sin usuario seleccionado -->
@@ -57,10 +57,8 @@
             }
         </RadzenPanelMenu>
         
-        <!-- Selector de Usuario en la parte inferior -->
-        <div style="position: absolute; bottom: 0; left: 0; right: 0;">
-            <UserSelector />
-        </div>
+        <!-- Selector de Usuario en la parte inferior del sidebar -->
+        <UserSelector />
     </RadzenSidebar>
     <RadzenBody Style="padding-bottom: 100px;">
         <div class="rz-p-4">

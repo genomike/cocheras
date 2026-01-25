@@ -8,4 +8,5 @@ public interface ICajonService
     Task<CajonDto?> GetByNumeroAsync(int numero, CancellationToken cancellationToken = default);
     Task<IEnumerable<CajonDto>> GetCajonesLibresAsync(CancellationToken cancellationToken = default);
     Task ActualizarEstadoAsync(int numero, bool ocupado, CancellationToken cancellationToken = default);
+    Task ResetearEstadoAsync(CancellationToken cancellationToken = default);
 }

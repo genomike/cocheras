@@ -29,11 +29,13 @@ public class MqttConsumerService : IMqttConsumerService, IDisposable
         var factory = new MqttFactory();
         _mqttClient = factory.CreateMqttClient();
 
+        // Usar ClientId fijo y CleanSession=false para recibir mensajes pendientes
         var options = new MqttClientOptionsBuilder()
             .WithTcpServer(_settings.Server, _settings.Port)
             .WithCredentials(_settings.Username, _settings.Password)
-            .WithClientId($"{_settings.ClientId}_{Guid.NewGuid():N}")
-            .WithCleanSession()
+            .WithClientId(_settings.ClientId)  // ClientId fijo para sesión persistente
+            .WithCleanSession(false)           // Mantener sesión para recibir mensajes offline
+            .WithKeepAlivePeriod(TimeSpan.FromSeconds(30))
             .Build();
 
         _mqttClient.ApplicationMessageReceivedAsync += async e =>
@@ -50,11 +52,17 @@ public class MqttConsumerService : IMqttConsumerService, IDisposable
                 if (mensaje != null && OnMensajeRecibido != null)
                 {
                     await OnMensajeRecibido.Invoke(mensaje, payload);
+                    
+                    // CRÍTICO: Confirmar el mensaje manualmente con QoS 1
+                    e.IsHandled = true;
+                    _logger.LogDebug("Mensaje confirmado como procesado para topic {Topic}", e.ApplicationMessage.Topic);
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error al procesar mensaje MQTT");
+                // Si hay error, NO confirmamos el mensaje para que se reintente
+                e.IsHandled = false;
             }
         };
 
@@ -80,11 +88,13 @@ public class MqttConsumerService : IMqttConsumerService, IDisposable
         {
             _logger.LogInformation("Conectado al broker MQTT {Server}:{Port}", _settings.Server, _settings.Port);
             
+            // Suscribirse con QoS 1 (At least once) para garantizar entrega
             await _mqttClient.SubscribeAsync(new MqttTopicFilterBuilder()
                 .WithTopic(_settings.Topic)
+                .WithQualityOfServiceLevel(MQTTnet.Protocol.MqttQualityOfServiceLevel.AtLeastOnce)
                 .Build(), cancellationToken);
             
-            _logger.LogInformation("Suscrito al topic: {Topic}", _settings.Topic);
+            _logger.LogInformation("Suscrito al topic: {Topic} con QoS 1", _settings.Topic);
         };
 
         try

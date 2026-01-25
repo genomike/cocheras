@@ -5,9 +5,8 @@
 @using Radzen.Blazor
 @inject UsuarioActualService UsuarioActualService
 @inject NavigationManager NavigationManager
-@rendermode InteractiveServer
 
-<PageTitle>Bienvenido - Sistema de Cochera</PageTitle>
+<PageTitle>Sistema de Cochera</PageTitle>
 
 <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; text-align: center;">
     <RadzenIcon Icon="local_parking" Style="font-size: 8rem; color: var(--rz-primary); margin-bottom: 1rem;" />
@@ -20,26 +19,10 @@
         Prototipo de estacionamiento inteligente con sensores ESP32
     </RadzenText>
 
-    <RadzenCard class="rz-shadow-4 rz-p-5" Style="max-width: 500px; width: 100%;">
-        <RadzenText TextStyle="TextStyle.H6" class="rz-mb-4">
-            <RadzenIcon Icon="person" /> Seleccione un usuario para comenzar
-        </RadzenText>
-        
-        <RadzenText TextStyle="TextStyle.Body2" class="rz-color-secondary rz-mb-4">
-            Utilice el selector de usuario en el menú lateral izquierdo (parte inferior) para iniciar sesión.
-        </RadzenText>
-
-        <RadzenStack Gap="0.5rem">
-            @foreach (var usuario in usuarios)
-            {
-                <RadzenButton Text="@usuario.Nombre" 
-                    Icon="@(usuario.EsAdmin ? "admin_panel_settings" : "person")"
-                    ButtonStyle="@(usuario.EsAdmin ? ButtonStyle.Warning : ButtonStyle.Primary)" 
-                    Variant="Variant.Outlined"
-                    Style="width: 100%;"
-                    Click="() => SeleccionarUsuario(usuario.Id)" />
-            }
-        </RadzenStack>
+    <RadzenCard class="rz-shadow-4 rz-p-4" Style="max-width: 500px; width: 100%;">
+        <RadzenAlert AlertStyle="AlertStyle.Info" Variant="Variant.Flat" Shade="Shade.Lighter" AllowClose="false">
+            <RadzenIcon Icon="arrow_downward" /> Seleccione un usuario en el menú lateral (parte inferior) para comenzar
+        </RadzenAlert>
     </RadzenCard>
 
     <RadzenCard class="rz-mt-4 rz-shadow-2" Style="max-width: 600px;">
@@ -56,13 +39,9 @@
 </div>
 
 @code {
-    private List<UsuarioDto> usuarios = new();
-
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
-        usuarios = (await UsuarioActualService.GetTodosUsuariosAsync()).ToList();
-        
-        // Si ya hay usuario logueado, redirigir
+        // Si ya hay usuario logueado, redirigir automáticamente
         if (UsuarioActualService.EstaLogueado)
         {
             if (UsuarioActualService.EsAdmin)
@@ -70,15 +49,5 @@
             else
                 NavigationManager.NavigateTo("/usuario/disponibilidad");
         }
-    }
-
-    private async Task SeleccionarUsuario(int usuarioId)
-    {
-        await UsuarioActualService.CambiarUsuarioAsync(usuarioId);
-        
-        if (UsuarioActualService.EsAdmin)
-            NavigationManager.NavigateTo("/admin/dashboard");
-        else
-            NavigationManager.NavigateTo("/usuario/disponibilidad");
     }
 }

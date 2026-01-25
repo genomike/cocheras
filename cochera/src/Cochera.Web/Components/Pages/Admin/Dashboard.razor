@@ -6,8 +6,11 @@
 @using Radzen
 @using Radzen.Blazor
 @inject IDashboardService DashboardService
+@inject ICajonService CajonService
 @inject UsuarioActualService UsuarioActualService
 @inject NavigationManager Navigation
+@inject NotificationService NotificationService
+@inject IServiceProvider ServiceProvider
 @implements IAsyncDisposable
 @rendermode InteractiveServer
 
@@ -88,9 +91,17 @@ else
         <RadzenRow Gap="1rem" class="rz-mb-4">
             <RadzenColumn Size="12" SizeMD="4">
                 <RadzenCard class="rz-shadow-3">
-                    <RadzenText TextStyle="TextStyle.H6" class="rz-mb-2">
-                        <RadzenIcon Icon="garage" /> Estado de Cajones
-                    </RadzenText>
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-2">
+                        <RadzenText TextStyle="TextStyle.H6" class="rz-mb-0">
+                            <RadzenIcon Icon="garage" /> Estado de Cajones
+                        </RadzenText>
+                        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+                            <RadzenButton Icon="clear_all" ButtonStyle="ButtonStyle.Warning" Size="ButtonSize.Small" 
+                                Click="@PurgarColaMqtt" title="Purgar cola MQTT (132 mensajes)" />
+                            <RadzenButton Icon="restart_alt" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Small" 
+                                Click="@ResetearCajones" title="Resetear estado de cajones a LIBRE" />
+                        </RadzenStack>
+                    </RadzenStack>
                     <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" JustifyContent="JustifyContent.Center">
                         <div class="cajon @(dashboard.EstadoActual.Cajon1Ocupado ? "ocupado" : "libre")">
                             <RadzenText TextStyle="TextStyle.H5">Cajón 1</RadzenText>
@@ -205,6 +216,39 @@ else
     private async Task LoadDashboard()
     {
         dashboard = await DashboardService.GetDashboardAsync();
+    }
+
+    private async Task ResetearCajones()
+    {
+        await CajonService.ResetearEstadoAsync();
+        await LoadDashboard();
+        NotificationService.Notify(NotificationSeverity.Success, "Estado reseteado", "Todos los cajones marcados como LIBRE");
+    }
+
+    private async Task PurgarColaMqtt()
+    {
+        try
+        {
+            // Usamos reflexión para obtener el servicio RabbitMQ
+            var rabbitMqServiceType = Type.GetType("Cochera.Infrastructure.RabbitMq.RabbitMqManagementService, Cochera.Infrastructure");
+            if (rabbitMqServiceType != null)
+            {
+                var rabbitMqService = ServiceProvider.GetService(rabbitMqServiceType);
+                if (rabbitMqService != null)
+                {
+                    var purgeMethod = rabbitMqServiceType.GetMethod("PurgeClientQueueAsync");
+                    if (purgeMethod != null)
+                    {
+                        await (Task)purgeMethod.Invoke(rabbitMqService, new object[] { "CocheraWorker" })!;
+                        NotificationService.Notify(NotificationSeverity.Success, "Cola purgada", "Mensajes MQTT eliminados");
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Error", $"No se pudo purgar la cola: {ex.Message}");
+        }
     }
 
     private async Task SetupSignalR()
