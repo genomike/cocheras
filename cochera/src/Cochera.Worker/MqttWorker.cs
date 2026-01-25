@@ -57,14 +57,18 @@ public class MqttWorker : BackgroundService
                 // Si es movimiento de entrada, notificar a admins para que gestionen la entrada
                 if (eventoDto.TipoEvento == TipoEvento.MovimientoEntrada)
                 {
-                    _logger.LogInformation("🚗 Vehículo detectado en ENTRADA - Notificando a administradores");
+                    _logger.LogInformation("🚗 Vehículo detectado en ENTRADA (MovimientoEntrada) - Notificando a administradores");
                     await _notificationService.NotificarVehiculoDetectadoAsync(eventoDto);
                 }
                 // Si es vehículo saliendo, también notificar (podría ser para confirmar salida)
                 else if (eventoDto.TipoEvento == TipoEvento.VehiculoSalio)
                 {
-                    _logger.LogInformation("🚗 Vehículo detectado en SALIDA - Notificando a administradores");
+                    _logger.LogInformation("🚗 Vehículo detectado en SALIDA (VehiculoSalio) - Notificando a administradores");
                     await _notificationService.NotificarVehiculoDetectadoAsync(eventoDto);
+                }
+                else
+                {
+                    _logger.LogDebug("📋 Evento {TipoEvento} no requiere notificación de vehículo detectado", eventoDto.TipoEvento);
                 }
             }
             catch (Exception ex)

@@ -144,18 +144,35 @@ public class SesionService : ISesionService
     }
 
     /// <summary>
-    /// Usuario confirma que realizó el pago
+    /// Usuario confirma que realizó el pago.
+    /// Esto calcula el monto final, crea el pago y CIERRA AUTOMÁTICAMENTE la sesión.
     /// </summary>
     public async Task<SesionEstacionamientoDto> ConfirmarPagoUsuarioAsync(ConfirmacionPagoDto confirmacion, CancellationToken cancellationToken = default)
     {
         var sesion = await _unitOfWork.Sesiones.GetWithPagoAsync(confirmacion.SesionId, cancellationToken)
             ?? throw new InvalidOperationException("Sesión no encontrada");
 
-        if (sesion.Estado != EstadoSesion.PendientePago)
-            throw new InvalidOperationException("La sesión no está pendiente de pago");
+        // Permitir pago si la sesión está Activa o PendientePago
+        if (sesion.Estado != EstadoSesion.Activa && sesion.Estado != EstadoSesion.PendientePago)
+            throw new InvalidOperationException("La sesión ya está finalizada");
 
         if (sesion.UsuarioId != confirmacion.UsuarioId)
             throw new InvalidOperationException("El usuario no coincide con la sesión");
+
+        if (sesion.Pago != null)
+            throw new InvalidOperationException("El pago ya fue realizado");
+
+        // Calcular tiempo y monto si aún no se ha calculado
+        if (!sesion.HoraSalida.HasValue)
+        {
+            sesion.HoraSalida = DateTime.UtcNow;
+            var diferencia = sesion.HoraSalida.Value - sesion.HoraEntrada;
+            sesion.MinutosEstacionado = (int)diferencia.TotalMinutes;
+            if (diferencia.Seconds > 0 || diferencia.Milliseconds > 0)
+                sesion.MinutosEstacionado++;
+            sesion.MinutosEstacionado = Math.Max(1, sesion.MinutosEstacionado);
+            sesion.MontoTotal = sesion.MinutosEstacionado * sesion.TarifaPorMinuto;
+        }
 
         // Crear registro de pago
         var pago = new Pago
@@ -168,6 +185,11 @@ public class SesionService : ISesionService
         };
 
         await _unitOfWork.Pagos.AddAsync(pago, cancellationToken);
+        
+        // CERRAR AUTOMÁTICAMENTE LA SESIÓN después del pago
+        sesion.Estado = EstadoSesion.Finalizada;
+        _unitOfWork.Sesiones.Update(sesion);
+        
         await _unitOfWork.SaveChangesAsync(cancellationToken);
 
         sesion.Pago = pago;
@@ -176,33 +198,44 @@ public class SesionService : ISesionService
 
     /// <summary>
     /// Admin cierra la sesión después de que el usuario pagó
-    /// Libera el cajón y finaliza la sesión
+    /// NO libera el cajón automáticamente - el sensor detectará cuando el vehículo salga
     /// </summary>
     public async Task<SesionEstacionamientoDto> CerrarSesionAsync(int sesionId, CancellationToken cancellationToken = default)
     {
         var sesion = await _unitOfWork.Sesiones.GetWithPagoAsync(sesionId, cancellationToken)
             ?? throw new InvalidOperationException("Sesión no encontrada");
 
-        if (sesion.Estado != EstadoSesion.PendientePago)
-            throw new InvalidOperationException("Solo se pueden cerrar sesiones pendientes de pago");
-
-        if (sesion.Pago == null)
-            throw new InvalidOperationException("El usuario aún no ha confirmado el pago");
-
-        // Actualizar estado del cajón
-        var cajon = await _unitOfWork.Cajones.GetByIdAsync(sesion.CajonId, cancellationToken);
-        if (cajon != null)
+        if (sesion.Estado == EstadoSesion.Activa)
         {
-            cajon.Estado = EstadoCajon.Libre;
-            cajon.UltimoCambioEstado = DateTime.UtcNow;
-            _unitOfWork.Cajones.Update(cajon);
+            // Admin solicita cierre de sesión activa - cambiar a PendientePago
+            sesion.HoraSalida = DateTime.UtcNow;
+            var diferencia = sesion.HoraSalida.Value - sesion.HoraEntrada;
+            sesion.MinutosEstacionado = (int)diferencia.TotalMinutes;
+            if (diferencia.Seconds > 0 || diferencia.Milliseconds > 0)
+                sesion.MinutosEstacionado++;
+            sesion.MinutosEstacionado = Math.Max(1, sesion.MinutosEstacionado);
+            
+            sesion.MontoTotal = sesion.MinutosEstacionado * sesion.TarifaPorMinuto;
+            sesion.Estado = EstadoSesion.PendientePago;
+            _unitOfWork.Sesiones.Update(sesion);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            
+            return MapToDto(sesion);
         }
+        else if (sesion.Estado == EstadoSesion.PendientePago)
+        {
+            // Usuario ya pagó, ahora finalizar
+            if (sesion.Pago == null)
+                throw new InvalidOperationException("El usuario aún no ha confirmado el pago");
 
-        sesion.Estado = EstadoSesion.Finalizada;
-        _unitOfWork.Sesiones.Update(sesion);
-        await _unitOfWork.SaveChangesAsync(cancellationToken);
-
-        return MapToDto(sesion);
+            sesion.Estado = EstadoSesion.Finalizada;
+            _unitOfWork.Sesiones.Update(sesion);
+            await _unitOfWork.SaveChangesAsync(cancellationToken);
+            
+            return MapToDto(sesion);
+        }
+        
+        throw new InvalidOperationException("La sesión no puede ser cerrada en su estado actual");
     }
 
     // Método legacy para compatibilidad (proceso directo sin flujo de eventos)
@@ -240,14 +273,8 @@ public class SesionService : ISesionService
             sesion.Pago = pago;
         }
 
-        // Actualizar estado del cajón
-        var cajon = await _unitOfWork.Cajones.GetByIdAsync(sesion.CajonId, cancellationToken);
-        if (cajon != null)
-        {
-            cajon.Estado = EstadoCajon.Libre;
-            cajon.UltimoCambioEstado = DateTime.UtcNow;
-            _unitOfWork.Cajones.Update(cajon);
-        }
+        // NO liberar el cajón aquí - el sensor lo detectará cuando el vehículo salga físicamente
+        // El cajón se liberará automáticamente cuando llegue el evento CAJON_LIBERADO del ESP32
 
         _unitOfWork.Sesiones.Update(sesion);
         await _unitOfWork.SaveChangesAsync(cancellationToken);

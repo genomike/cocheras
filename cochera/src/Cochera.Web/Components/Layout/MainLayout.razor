@@ -6,28 +6,26 @@
 @inject UsuarioActualService UsuarioActualService
 @inject NavigationManager NavigationManager
 
-<RadzenLayout>
+<RadzenLayout Style="--rz-sidebar-width: 220px;">
     <RadzenHeader>
-        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0" Style="width: 100%;">
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0" class="header-content">
             <RadzenSidebarToggle Click="@(() => sidebarExpanded = !sidebarExpanded)" />
-            <RadzenLabel Text="🅿️ Sistema de Cochera" Style="font-size: 1.5rem; font-weight: bold; margin-left: 12px;" />
+            <RadzenLabel Text="🅿️ Sistema de Cochera" class="app-title" />
             <div style="flex-grow: 1;"></div>
             @if (UsuarioActualService.EstaLogueado)
             {
-                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem" Style="margin-right: 1rem;">
-                    <RadzenIcon Icon="@(UsuarioActualService.EsAdmin ? "admin_panel_settings" : "person")" />
-                    <RadzenText TextStyle="TextStyle.Body1" Style="color: white;">
-                        @UsuarioActualService.UsuarioActual?.Nombre
-                        @if (UsuarioActualService.EsAdmin)
-                        {
-                            <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="Admin" Style="margin-left: 8px;" />
-                        }
-                    </RadzenText>
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.25rem" class="user-info">
+                    <RadzenIcon Icon="@(UsuarioActualService.EsAdmin ? "admin_panel_settings" : "person")" Style="font-size: 1rem;" />
+                    <span class="user-name">@UsuarioActualService.UsuarioActual?.Nombre</span>
+                    @if (UsuarioActualService.EsAdmin)
+                    {
+                        <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="Admin" class="admin-badge" />
+                    }
                 </RadzenStack>
             }
         </RadzenStack>
     </RadzenHeader>
-    <RadzenSidebar @bind-Expanded="@sidebarExpanded" Style="display: flex; flex-direction: column;">
+    <RadzenSidebar @bind-Expanded="@sidebarExpanded" class="app-sidebar">
         <RadzenPanelMenu Style="flex: 1;">
             @if (!UsuarioActualService.EstaLogueado)
             {
@@ -61,8 +59,8 @@
         <!-- Selector de Usuario en la parte inferior del sidebar -->
         <UserSelector />
     </RadzenSidebar>
-    <RadzenBody Style="padding-bottom: 100px;">
-        <div class="rz-p-4">
+    <RadzenBody class="app-body">
+        <div class="page-content">
             @Body
         </div>
     </RadzenBody>
@@ -72,12 +70,90 @@
 <RadzenNotification />
 <RadzenTooltip />
 
+<style>
+    /* Estilos responsive para mobile */
+    .header-content {
+        width: 100%;
+    }
+    .app-title {
+        font-size: 1.25rem;
+        font-weight: bold;
+        margin-left: 8px;
+        white-space: nowrap;
+    }
+    .user-info {
+        margin-right: 0.5rem;
+    }
+    .user-name {
+        color: white;
+        font-size: 0.875rem;
+    }
+    .admin-badge {
+        margin-left: 4px;
+        font-size: 0.7rem !important;
+    }
+    .app-sidebar {
+        display: flex;
+        flex-direction: column;
+    }
+    .app-body {
+        padding-bottom: 60px;
+    }
+    .page-content {
+        padding: 1rem;
+    }
+    
+    /* Mobile styles */
+    @@media (max-width: 768px) {
+        .app-title {
+            font-size: 1rem;
+            margin-left: 4px;
+        }
+        .user-name {
+            display: none;
+        }
+        .user-info {
+            margin-right: 0.25rem;
+        }
+        .admin-badge {
+            font-size: 0.6rem !important;
+            padding: 2px 4px !important;
+        }
+        .page-content {
+            padding: 0.5rem;
+        }
+        .app-body {
+            padding-bottom: 40px;
+        }
+        :root {
+            --rz-sidebar-width: 200px;
+        }
+    }
+</style>
+
 @code {
     bool sidebarExpanded = true;
+    private bool _initialized = false;
+    private string? _lastUrl;
 
     protected override void OnInitialized()
     {
         UsuarioActualService.OnUsuarioCambiado += OnUsuarioCambiadoHandler;
+        // Guardar URL actual para restaurar después de refresh
+        _lastUrl = NavigationManager.Uri;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_initialized)
+        {
+            _initialized = true;
+            await UsuarioActualService.InitializeAsync();
+            
+            // Si hay usuario logueado después de inicializar, mantener página actual
+            // No redirigir automáticamente
+            StateHasChanged();
+        }
     }
 
     private void OnUsuarioCambiadoHandler()

@@ -45,6 +45,7 @@ public class CocheraHub : Hub
             estado.Cajon1Ocupado ? "OCUPADO" : "LIBRE", 
             estado.Cajon2Ocupado ? "OCUPADO" : "LIBRE");
         await Clients.All.SendAsync("RecibirEstado", estado);
+        await Clients.All.SendAsync("ActualizarCajones", estado);
     }
 
     // === EVENTOS DE SESIONES ===

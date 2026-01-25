@@ -150,8 +150,9 @@ else
                 </RadzenColumn>
             </RadzenRow>
             
+            <!-- Mensaje informativo: El admin debe solicitar el cierre -->
             <RadzenAlert AlertStyle="AlertStyle.Info" class="rz-mt-4">
-                <RadzenIcon Icon="info" /> Cuando desees salir, acércate a la salida. El administrador te notificará para proceder al pago.
+                <RadzenIcon Icon="info" /> Cuando estés listo para salir, el administrador procesará tu salida y te solicitará el pago.
             </RadzenAlert>
         </RadzenCard>
     }
@@ -242,14 +243,28 @@ else
 }
 
 <style>
+    /* Mobile-first design */
+    .page-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.75rem;
+    }
+    .page-icon { font-size: 1.5rem; color: var(--rz-primary); }
+    .page-title { font-size: 1.25rem; font-weight: 600; }
+    
     .sesion-activa {
         background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
         border: 2px solid #ff9800;
+        padding: 1rem;
+        border-radius: 12px;
     }
     .sesion-pago-pendiente {
         background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
         border: 2px solid #f44336;
         animation: pulse-pago 2s infinite;
+        padding: 1rem;
+        border-radius: 12px;
     }
     @@keyframes pulse-pago {
         0%, 100% { border-color: #f44336; }
@@ -258,15 +273,20 @@ else
     .sesion-finalizada {
         background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
         border: 2px solid #4caf50;
+        padding: 1rem;
+        border-radius: 12px;
     }
     .info-card {
         display: flex;
         align-items: center;
-        gap: 1rem;
-        padding: 1rem;
+        gap: 0.75rem;
+        padding: 0.75rem;
+        background: white;
+        border-radius: 8px;
+        margin-bottom: 0.5rem;
     }
     .info-card .rz-icon {
-        font-size: 2rem;
+        font-size: 1.5rem;
         color: var(--rz-primary);
     }
     .monto-total {
@@ -276,19 +296,80 @@ else
     .info-resumen {
         background: white;
         border: 1px solid #ddd;
+        padding: 1rem;
+        border-radius: 8px;
     }
+    .info-resumen-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #eee;
+    }
+    .info-resumen-row:last-child { border-bottom: none; }
     .cajon-card {
-        border-radius: 16px;
-        transition: transform 0.2s, box-shadow 0.2s;
+        border-radius: 12px;
+        transition: transform 0.2s;
+        text-align: center;
+        padding: 1rem;
     }
     .cajon-libre {
         background: linear-gradient(180deg, #e8f5e9 0%, #c8e6c9 100%);
-        border: 3px solid #4caf50;
+        border: 2px solid #4caf50;
     }
     .cajon-ocupado {
         background: linear-gradient(180deg, #ffebee 0%, #ffcdd2 100%);
-        border: 3px solid #f44336;
-        opacity: 0.7;
+        border: 2px solid #f44336;
+        opacity: 0.8;
+    }
+    .cajon-emoji { font-size: 3rem; margin-bottom: 0.25rem; }
+    .cajon-numero { font-size: 1rem; font-weight: 600; }
+    
+    .cajones-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+    }
+    .badge-libre, .badge-ocupado {
+        display: inline-block;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    .badge-libre { background: #4caf50; color: white; }
+    .badge-ocupado { background: #f44336; color: white; }
+    
+    .pago-botones {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        margin-top: 1rem;
+    }
+    .pago-btn {
+        padding: 1rem;
+        border: none;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+    }
+    .pago-btn-efectivo { background: #4caf50; color: white; }
+    .pago-btn-tarjeta { background: #2196f3; color: white; }
+    .pago-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    
+    /* Tablet+ */
+    @@media (min-width: 768px) {
+        .page-title { font-size: 1.5rem; }
+        .info-card { padding: 1rem; }
+        .info-card .rz-icon { font-size: 2rem; }
+        .cajon-emoji { font-size: 4rem; }
+        .cajones-grid { max-width: 500px; margin: 0 auto; gap: 1.5rem; }
+        .pago-botones { flex-direction: row; justify-content: center; }
+        .pago-btn { min-width: 180px; }
     }
 </style>
 
@@ -344,8 +425,25 @@ else
             sesionPendientePago = null;
             mostrarMensajeDespedida = false;
             await InvokeAsync(StateHasChanged);
-            NotificationService.Notify(NotificationSeverity.Success, "🚗 Sesión iniciada", 
-                $"Bienvenido! Te asignamos el Cajón {sesion.CajonNumero}");
+            
+            // Mostrar popup de bienvenida
+            await InvokeAsync(async () =>
+            {
+                var resultado = await DialogService.Confirm(
+                    $"Se ha iniciado tu sesión en el Cajón {sesion.CajonNumero}. Tarifa: S/ {sesion.TarifaPorMinuto:N2}/min",
+                    "🚗 ¡Bienvenido a la Cochera!",
+                    new ConfirmOptions 
+                    { 
+                        OkButtonText = "Ver Mi Estacionamiento", 
+                        CancelButtonText = "Cerrar",
+                        Width = "400px"
+                    });
+                
+                if (resultado == true)
+                {
+                    Navigation.NavigateTo("/usuario/estacionamiento", forceLoad: true);
+                }
+            });
         });
 
         // Admin solicita cierre de sesión
@@ -386,6 +484,13 @@ else
                 sesionActiva = sesion;
                 await InvokeAsync(StateHasChanged);
             }
+        });
+
+        // Actualizar cajones en tiempo real
+        hubConnection.On<EstadoCocheraDto>("ActualizarCajones", async (estado) =>
+        {
+            await LoadData();
+            await InvokeAsync(StateHasChanged);
         });
 
         await hubConnection.StartAsync();
@@ -436,13 +541,27 @@ else
                     MetodoPago = metodoPago
                 };
 
-                sesionPendientePago = await SesionService.ConfirmarPagoUsuarioAsync(confirmacionPago);
+                var sesionFinal = await SesionService.ConfirmarPagoUsuarioAsync(confirmacionPago);
                 
                 // Notificar al admin via SignalR
-                await SesionNotificationService.NotificarPagoConfirmadoAsync(sesionPendientePago);
+                await SesionNotificationService.NotificarPagoConfirmadoAsync(sesionFinal);
                 
-                NotificationService.Notify(NotificationSeverity.Success, "✅ Pago confirmado", 
-                    "Tu pago ha sido registrado. Esperando confirmación del administrador...");
+                // La sesión ya está cerrada automáticamente, mostrar mensaje de despedida
+                sesionPendientePago = null;
+                sesionActiva = null;
+                sesionFinalizada = sesionFinal;
+                mostrarMensajeDespedida = true;
+                
+                NotificationService.Notify(NotificationSeverity.Success, "✅ ¡Pago exitoso!", 
+                    "Tu pago ha sido procesado. ¡Gracias por visitarnos!");
+                
+                // Ocultar mensaje de despedida después de 30 segundos
+                _ = Task.Delay(30000).ContinueWith(async _ =>
+                {
+                    mostrarMensajeDespedida = false;
+                    sesionFinalizada = null;
+                    await InvokeAsync(StateHasChanged);
+                });
             }
             catch (Exception ex)
             {

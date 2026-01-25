@@ -8,10 +8,15 @@
 @using Radzen.Blazor
 @inject IDashboardService DashboardService
 @inject ICajonService CajonService
+@inject IUsuarioService UsuarioService
+@inject ISesionService SesionService
+@inject ISesionNotificationService SesionNotificationService
 @inject UsuarioActualService UsuarioActualService
 @inject NavigationManager Navigation
 @inject NotificationService NotificationService
+@inject DialogService DialogService
 @inject IServiceProvider ServiceProvider
+@inject ILogger<Dashboard> _logger
 @implements IAsyncDisposable
 @rendermode InteractiveServer
 
@@ -29,8 +34,8 @@ else
         </RadzenText>
         <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
             <RadzenButton Icon="refresh" Text="Actualizar" ButtonStyle="ButtonStyle.Light" Click="@LoadDashboard" />
-            <RadzenButton Icon="directions_car" Text="Gestión Entrada/Salida" ButtonStyle="ButtonStyle.Primary" 
-                Click="@(() => Navigation.NavigateTo("/admin/gestion-entrada"))" />
+            <RadzenButton Icon="add_circle" Text="ABRIR POPUP" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Large"
+                Click="@(() => MostrarPopupMovimiento(true))" />
         </RadzenStack>
     </RadzenStack>
 
@@ -287,16 +292,101 @@ else
             }
         });
 
-        // Escuchar eventos de vehículos y navegar automáticamente a gestión de sesiones
+        // Escuchar eventos de vehículos y MOSTRAR POPUP INMEDIATAMENTE
         hubConnection.On<EventoSensorDto>("VehiculoDetectadoEnEntrada", async (evento) =>
         {
-            NotificationService.Notify(NotificationSeverity.Warning, 
-                evento.TipoEvento == TipoEvento.MovimientoEntrada ? "🚗 Vehículo detectado en ENTRADA" : "🚗 Vehículo detectado en SALIDA", 
-                "Redirigiendo a gestión de sesiones...");
-            await InvokeAsync(() => Navigation.NavigateTo("/admin/gestion-entrada"));
+            _logger?.LogInformation("🚗🚗🚗 POPUP! VehiculoDetectadoEnEntrada recibido en Dashboard: {Tipo}", evento.TipoEventoTexto);
+            
+            // Solo mostrar popup si la cochera NO está llena
+            if (dashboard != null && !dashboard.EstadoActual.CocheraLlena)
+            {
+                await InvokeAsync(async () => 
+                {
+                    NotificationService.Notify(NotificationSeverity.Info, "🚗 VEHÍCULO DETECTADO", "Abriendo popup...");
+                    await MostrarPopupMovimiento(evento.TipoEvento == TipoEvento.MovimientoEntrada);
+                });
+            }
+            else if (dashboard?.EstadoActual.CocheraLlena == true)
+            {
+                await InvokeAsync(() => NotificationService.Notify(NotificationSeverity.Error, "🚫 Cochera Llena", "No se puede registrar entrada - cochera llena"));
+            }
         });
 
         await hubConnection.StartAsync();
+        
+        // ¡¡¡ UNIRSE AL GRUPO ADMINS !!!
+        await hubConnection.InvokeAsync("UnirseComoAdmin");
+        _logger?.LogInformation("✅ Dashboard unido al grupo 'admins'");
+    }
+
+    private async Task MostrarPopupMovimiento(bool esEntrada)
+    {
+        // Cargar datos necesarios
+        var usuarios = (await UsuarioService.GetAllAsync()).Where(u => !u.EsAdmin).ToList();
+        var todosLosCajones = (await CajonService.GetAllAsync()).ToList();
+        var cajones = todosLosCajones.Where(c => c.Estado == EstadoCajon.Libre).ToList();
+        
+        _logger?.LogInformation("🔍 Cajones totales: {Total}, Cajones libres: {Libres}", todosLosCajones.Count, cajones.Count);
+        foreach (var c in todosLosCajones)
+        {
+            _logger?.LogInformation("   Cajón {Num}: {Estado}", c.Numero, c.Estado);
+        }
+        
+        var sesionesActivas = (await SesionService.GetSesionesActivasAsync()).ToList();
+        
+        // Si es SALIDA, pre-seleccionar la sesión basada en el cajón que se liberó
+        SesionEstacionamientoDto? sesionPreseleccionada = null;
+        if (!esEntrada && sesionesActivas.Count == 1)
+        {
+            // Si solo hay una sesión activa, auto-seleccionarla
+            sesionPreseleccionada = sesionesActivas.First();
+        }
+
+        var result = await DialogService.OpenAsync<DialogoMovimiento>(
+            esEntrada ? "🚗 Vehículo Detectado - ENTRADA" : "🚗 Vehículo Detectado - SALIDA",
+            new Dictionary<string, object>
+            {
+                { "ModoEntradaInicial", esEntrada },
+                { "UsuariosDisponibles", usuarios },
+                { "CajonesDisponibles", cajones },
+                { "SesionesActivas", sesionesActivas },
+                { "SesionPreseleccionada", sesionPreseleccionada }
+            },
+            new DialogOptions
+            {
+                Width = "500px",
+                Height = "auto",
+                CloseDialogOnOverlayClick = false,
+                CloseDialogOnEsc = false,
+                ShowClose = true
+            });
+
+        if (result is DialogoMovimiento.MovimientoResult movimiento)
+        {
+            if (movimiento.TipoMovimiento == "Entrada" && movimiento.DatosEntrada != null)
+            {
+                await SesionService.IniciarSesionAsync(movimiento.DatosEntrada);
+                NotificationService.Notify(NotificationSeverity.Success, "✅ Entrada Registrada", "Sesión iniciada correctamente");
+            }
+            else if (movimiento.TipoMovimiento == "Salida" && movimiento.SesionSalida != null)
+            {
+                var sesionCerrada = await SesionService.CerrarSesionAsync(movimiento.SesionSalida.Id);
+                
+                // Si la sesión cambió a PendientePago, notificar al usuario
+                if (sesionCerrada.Estado == Domain.Enums.EstadoSesion.PendientePago)
+                {
+                    await SesionNotificationService.NotificarSolicitudCierreSesionAsync(sesionCerrada);
+                    NotificationService.Notify(NotificationSeverity.Success, "✅ Salida Registrada", "Pago solicitado al usuario");
+                }
+                else
+                {
+                    await SesionNotificationService.NotificarSesionCerradaAsync(sesionCerrada);
+                    NotificationService.Notify(NotificationSeverity.Success, "✅ Sesión Finalizada", "Sesión cerrada completamente");
+                }
+            }
+            
+            await LoadDashboard();
+        }
     }
 
     private BadgeStyle GetBadgeStyle(Domain.Enums.TipoEvento tipo)

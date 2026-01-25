@@ -1,0 +1,207 @@
+@using Cochera.Application.DTOs
+@using Cochera.Domain.Enums
+@using Radzen
+@using Radzen.Blazor
+@inject DialogService DialogService
+
+<RadzenStack Gap="1.5rem">
+    <!-- Toggle Entrada/Salida -->
+    <RadzenCard class="rz-p-3">
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" JustifyContent="JustifyContent.Center">
+            <RadzenButton Text="🚗 Entrada" Icon="login" 
+                ButtonStyle="@(esEntrada ? ButtonStyle.Success : ButtonStyle.Light)" 
+                Size="ButtonSize.Large"
+                Click="@(() => CambiarModo(true))" />
+            <RadzenButton Text="🚗 Salida" Icon="logout" 
+                ButtonStyle="@(!esEntrada ? ButtonStyle.Warning : ButtonStyle.Light)" 
+                Size="ButtonSize.Large"
+                Click="@(() => CambiarModo(false))" />
+        </RadzenStack>
+    </RadzenCard>
+
+    @if (esEntrada)
+    {
+        <!-- Modo Entrada -->
+        <RadzenText TextStyle="TextStyle.H6" Style="color: var(--rz-success);">
+            <RadzenIcon Icon="login" /> Registrar Nueva Entrada
+        </RadzenText>
+
+        <RadzenFormField Text="Seleccionar Usuario" Variant="Variant.Outlined" Style="width: 100%;">
+            <RadzenDropDown @bind-Value="usuarioSeleccionado" Data="@UsuariosDisponibles" TextProperty="Nombre" 
+                ValueProperty="Id" Placeholder="Seleccione un usuario..." Style="width: 100%;" />
+        </RadzenFormField>
+
+        <RadzenFormField Text="Seleccionar Cajón" Variant="Variant.Outlined" Style="width: 100%;">
+            <RadzenDropDown @bind-Value="cajonSeleccionado" Data="@CajonesDisponibles" 
+                TextProperty="Numero" ValueProperty="Id" Placeholder="Seleccione un cajón..." Style="width: 100%;">
+                <Template Context="cajon">
+                    Cajón @((cajon as CajonDto)?.Numero) - Disponible
+                </Template>
+            </RadzenDropDown>
+        </RadzenFormField>
+
+        @if (usuarioSeleccionado > 0 && cajonSeleccionado > 0)
+        {
+            <RadzenCard class="rz-background-color-success-lighter">
+                <RadzenText TextStyle="TextStyle.Body1">
+                    <strong>Resumen:</strong><br/>
+                    Usuario: @(UsuariosDisponibles.FirstOrDefault(u => u.Id == usuarioSeleccionado)?.Nombre)<br/>
+                    Cajón: @(CajonesDisponibles.FirstOrDefault(c => c.Id == cajonSeleccionado)?.Numero)
+                </RadzenText>
+            </RadzenCard>
+        }
+
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" JustifyContent="JustifyContent.End">
+            <RadzenButton Text="Cancelar" ButtonStyle="ButtonStyle.Light" Click="@Cancelar" />
+            <RadzenButton Text="Registrar Entrada" Icon="login" ButtonStyle="ButtonStyle.Success" 
+                Disabled="@(usuarioSeleccionado <= 0 || cajonSeleccionado <= 0)"
+                Click="@ConfirmarEntrada" />
+        </RadzenStack>
+    }
+    else
+    {
+        <!-- Modo Salida -->
+        <RadzenText TextStyle="TextStyle.H6" Style="color: var(--rz-warning);">
+            <RadzenIcon Icon="logout" /> Registrar Salida de Vehículo
+        </RadzenText>
+
+        @if (SesionesActivas.Any())
+        {
+            <RadzenText TextStyle="TextStyle.Body1">
+                Seleccione la sesión del usuario que está saliendo:
+            </RadzenText>
+
+            <RadzenDataList Data="@SesionesActivas" TItem="SesionEstacionamientoDto">
+                <Template Context="sesion">
+                    <RadzenCard class="@GetSesionItemClass(sesion)"
+                        @onclick="@(() => SeleccionarSesion(sesion))" Style="cursor: pointer;">
+                        <RadzenRow AlignItems="AlignItems.Center">
+                            <RadzenColumn Size="8">
+                                <RadzenText TextStyle="TextStyle.Body1"><strong>@sesion.UsuarioNombre</strong></RadzenText>
+                                <RadzenText TextStyle="TextStyle.Caption">
+                                    Cajón @sesion.CajonNumero | Entrada: @sesion.HoraEntrada.ToString("HH:mm")
+                                </RadzenText>
+                            </RadzenColumn>
+                            <RadzenColumn Size="4" Style="text-align: right;">
+                                <RadzenText TextStyle="TextStyle.H6" Style="color: var(--rz-success);">
+                                    S/ @sesion.MontoTotal.ToString("N2")
+                                </RadzenText>
+                                <RadzenText TextStyle="TextStyle.Caption">@sesion.TiempoFormateado</RadzenText>
+                            </RadzenColumn>
+                        </RadzenRow>
+                    </RadzenCard>
+                </Template>
+            </RadzenDataList>
+
+            @if (sesionSeleccionada != null)
+            {
+                <RadzenCard class="rz-background-color-warning-lighter">
+                    <RadzenText TextStyle="TextStyle.Body1">
+                        <strong>Sesión seleccionada:</strong><br/>
+                        Usuario: @sesionSeleccionada.UsuarioNombre<br/>
+                        Cajón: @sesionSeleccionada.CajonNumero<br/>
+                        Tiempo: @sesionSeleccionada.TiempoFormateado<br/>
+                        <strong>Monto a cobrar: S/ @sesionSeleccionada.MontoTotal.ToString("N2")</strong>
+                    </RadzenText>
+                </RadzenCard>
+            }
+
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" JustifyContent="JustifyContent.End">
+                <RadzenButton Text="Cancelar" ButtonStyle="ButtonStyle.Light" Click="@Cancelar" />
+                <RadzenButton Text="Solicitar Salida" Icon="exit_to_app" ButtonStyle="ButtonStyle.Warning" 
+                    Disabled="@(sesionSeleccionada == null)"
+                    Click="@ConfirmarSalida" />
+            </RadzenStack>
+        }
+        else
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Info">
+                No hay sesiones activas para cerrar.
+            </RadzenAlert>
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" JustifyContent="JustifyContent.End">
+                <RadzenButton Text="Cerrar" ButtonStyle="ButtonStyle.Light" Click="@Cancelar" />
+            </RadzenStack>
+        }
+    }
+</RadzenStack>
+
+<style>
+    .sesion-item {
+        transition: all 0.2s ease;
+        border: 2px solid transparent;
+        margin-bottom: 0.5rem;
+    }
+    .sesion-item:hover {
+        background: var(--rz-base-200);
+    }
+    .sesion-item.seleccionada {
+        border-color: var(--rz-primary);
+        background: var(--rz-primary-lighter);
+    }
+</style>
+
+@code {
+    [Parameter] public List<UsuarioDto> UsuariosDisponibles { get; set; } = new();
+    [Parameter] public List<CajonDto> CajonesDisponibles { get; set; } = new();
+    [Parameter] public List<SesionEstacionamientoDto> SesionesActivas { get; set; } = new();
+    [Parameter] public bool ModoEntradaInicial { get; set; } = true;
+    [Parameter] public SesionEstacionamientoDto? SesionPreseleccionada { get; set; }
+
+    private bool esEntrada = true;
+    private int usuarioSeleccionado;
+    private int cajonSeleccionado;
+    private SesionEstacionamientoDto? sesionSeleccionada;
+
+    protected override void OnInitialized()
+    {
+        esEntrada = ModoEntradaInicial;
+        sesionSeleccionada = SesionPreseleccionada;
+    }
+
+    private void CambiarModo(bool entrada)
+    {
+        esEntrada = entrada;
+        // Limpiar selecciones al cambiar de modo
+        usuarioSeleccionado = 0;
+        cajonSeleccionado = 0;
+        sesionSeleccionada = null;
+    }
+
+    private string GetSesionItemClass(SesionEstacionamientoDto sesion)
+    {
+        return sesionSeleccionada?.Id == sesion.Id ? "sesion-item seleccionada" : "sesion-item";
+    }
+
+    private void SeleccionarSesion(SesionEstacionamientoDto sesion)
+    {
+        sesionSeleccionada = sesion;
+    }
+
+    private void Cancelar()
+    {
+        DialogService.Close(null);
+    }
+
+    private void ConfirmarEntrada()
+    {
+        var request = new IniciarSesionRequest
+        {
+            UsuarioId = usuarioSeleccionado,
+            CajonId = cajonSeleccionado
+        };
+        DialogService.Close(new MovimientoResult { TipoMovimiento = "Entrada", DatosEntrada = request });
+    }
+
+    private void ConfirmarSalida()
+    {
+        DialogService.Close(new MovimientoResult { TipoMovimiento = "Salida", SesionSalida = sesionSeleccionada });
+    }
+
+    // Clase para el resultado del diálogo
+    public class MovimientoResult
+    {
+        public string TipoMovimiento { get; set; } = "";
+        public IniciarSesionRequest? DatosEntrada { get; set; }
+        public SesionEstacionamientoDto? SesionSalida { get; set; }
+    }
+}
