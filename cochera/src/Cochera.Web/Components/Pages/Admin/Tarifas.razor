@@ -1,0 +1,147 @@
+@page "/admin/tarifas"
+@using Cochera.Application.DTOs
+@using Cochera.Application.Interfaces
+@using Radzen
+@using Radzen.Blazor
+@inject ITarifaService TarifaService
+@inject NotificationService NotificationService
+@rendermode InteractiveServer
+
+<PageTitle>Administración de Tarifas - Cochera</PageTitle>
+
+<RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="rz-mb-4">
+    <RadzenIcon Icon="attach_money" /> Administración de Tarifas
+</RadzenText>
+
+<RadzenRow Gap="1rem">
+    <RadzenColumn Size="12" SizeMD="4">
+        <RadzenCard class="rz-shadow-3">
+            <RadzenText TextStyle="TextStyle.H5" class="rz-mb-4">Tarifa Actual</RadzenText>
+            
+            @if (tarifaActual != null)
+            {
+                <RadzenStack Gap="0.5rem">
+                    <div style="text-align: center; padding: 1rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; color: white;">
+                        <RadzenText TextStyle="TextStyle.H2" Style="color: white;">
+                            S/ @tarifaActual.PrecioPorMinuto.ToString("N2")
+                        </RadzenText>
+                        <RadzenText Style="color: rgba(255,255,255,0.8);">por minuto</RadzenText>
+                    </div>
+                    <RadzenText TextStyle="TextStyle.Body2" class="rz-color-secondary">
+                        Vigente desde: @tarifaActual.FechaInicio.ToString("dd/MM/yyyy HH:mm")
+                    </RadzenText>
+                    @if (!string.IsNullOrEmpty(tarifaActual.Descripcion))
+                    {
+                        <RadzenText TextStyle="TextStyle.Body2">@tarifaActual.Descripcion</RadzenText>
+                    }
+                </RadzenStack>
+            }
+            else
+            {
+                <RadzenAlert AlertStyle="AlertStyle.Warning">
+                    No hay tarifa configurada
+                </RadzenAlert>
+            }
+        </RadzenCard>
+
+        <RadzenCard class="rz-shadow-3 rz-mt-4">
+            <RadzenText TextStyle="TextStyle.H5" class="rz-mb-4">Nueva Tarifa</RadzenText>
+            
+            <RadzenStack Gap="1rem">
+                <RadzenFormField Text="Precio por Minuto (S/)" Variant="Variant.Outlined" Style="width: 100%;">
+                    <RadzenNumeric @bind-Value="@nuevaTarifa" Min="0.01m" Step="0.5m" Format="N2" Style="width: 100%;" />
+                </RadzenFormField>
+                
+                <RadzenFormField Text="Descripción (opcional)" Variant="Variant.Outlined" Style="width: 100%;">
+                    <RadzenTextBox @bind-Value="@descripcion" Style="width: 100%;" />
+                </RadzenFormField>
+
+                <RadzenButton Text="Actualizar Tarifa" Icon="save" ButtonStyle="ButtonStyle.Primary" 
+                    Style="width: 100%;" Click="@ActualizarTarifa" IsBusy="@procesando" />
+            </RadzenStack>
+        </RadzenCard>
+    </RadzenColumn>
+
+    <RadzenColumn Size="12" SizeMD="8">
+        <RadzenCard class="rz-shadow-3">
+            <RadzenText TextStyle="TextStyle.H5" class="rz-mb-4">Historial de Tarifas</RadzenText>
+            
+            <RadzenDataGrid Data="@historial" TItem="TarifaDto" 
+                AllowPaging="true" PageSize="10" PagerHorizontalAlign="HorizontalAlign.Center">
+                <Columns>
+                    <RadzenDataGridColumn TItem="TarifaDto" Property="Id" Title="ID" Width="60px" />
+                    <RadzenDataGridColumn TItem="TarifaDto" Property="PrecioPorMinuto" Title="Precio/Min" FormatString="{0:C}" Width="120px" />
+                    <RadzenDataGridColumn TItem="TarifaDto" Property="FechaInicio" Title="Inicio" FormatString="{0:dd/MM/yy HH:mm}" Width="140px" />
+                    <RadzenDataGridColumn TItem="TarifaDto" Property="FechaFin" Title="Fin" Width="140px">
+                        <Template Context="tarifa">
+                            @(tarifa.FechaFin?.ToString("dd/MM/yy HH:mm") ?? "-")
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="TarifaDto" Property="Activa" Title="Estado" Width="100px">
+                        <Template Context="tarifa">
+                            <RadzenBadge BadgeStyle="@(tarifa.Activa ? BadgeStyle.Success : BadgeStyle.Light)" 
+                                Text="@(tarifa.Activa ? "Activa" : "Inactiva")" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="TarifaDto" Property="Descripcion" Title="Descripción" />
+                </Columns>
+            </RadzenDataGrid>
+        </RadzenCard>
+    </RadzenColumn>
+</RadzenRow>
+
+@code {
+    private TarifaDto? tarifaActual;
+    private List<TarifaDto> historial = new();
+    private decimal nuevaTarifa = 8.0m;
+    private string? descripcion;
+    private bool procesando;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatos();
+    }
+
+    private async Task CargarDatos()
+    {
+        tarifaActual = await TarifaService.GetTarifaActivaAsync();
+        historial = (await TarifaService.GetHistorialTarifasAsync()).ToList();
+        
+        if (tarifaActual != null)
+            nuevaTarifa = tarifaActual.PrecioPorMinuto;
+    }
+
+    private async Task ActualizarTarifa()
+    {
+        if (nuevaTarifa <= 0)
+        {
+            NotificationService.Notify(NotificationSeverity.Warning, "Valor Inválido", "El precio debe ser mayor a 0");
+            return;
+        }
+
+        procesando = true;
+        try
+        {
+            var request = new ActualizarTarifaRequest
+            {
+                NuevoPrecioPorMinuto = nuevaTarifa,
+                Descripcion = descripcion
+            };
+
+            await TarifaService.ActualizarTarifaAsync(request);
+            await CargarDatos();
+            descripcion = null;
+            
+            NotificationService.Notify(NotificationSeverity.Success, "Tarifa Actualizada", 
+                $"Nueva tarifa: S/ {nuevaTarifa:N2} por minuto");
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Error", ex.Message);
+        }
+        finally
+        {
+            procesando = false;
+        }
+    }
+}

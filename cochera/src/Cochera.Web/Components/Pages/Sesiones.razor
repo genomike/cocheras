@@ -1,0 +1,126 @@
+@page "/sesiones"
+@using Cochera.Application.DTOs
+@using Cochera.Application.Interfaces
+@using Radzen
+@using Radzen.Blazor
+@inject ISesionService SesionService
+@rendermode InteractiveServer
+
+<PageTitle>Historial de Sesiones - Cochera</PageTitle>
+
+<RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="rz-mb-4">
+    <RadzenIcon Icon="history" /> Historial de Sesiones
+</RadzenText>
+
+<RadzenCard class="rz-mb-4">
+    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem" Wrap="FlexWrap.Wrap">
+        <RadzenFormField Text="Desde" Variant="Variant.Outlined">
+            <RadzenDatePicker @bind-Value="@fechaDesde" DateFormat="dd/MM/yyyy" />
+        </RadzenFormField>
+        <RadzenFormField Text="Hasta" Variant="Variant.Outlined">
+            <RadzenDatePicker @bind-Value="@fechaHasta" DateFormat="dd/MM/yyyy" />
+        </RadzenFormField>
+        <RadzenButton Text="Filtrar" Icon="filter_alt" Click="@FiltrarSesiones" />
+        <RadzenButton Text="Hoy" Icon="today" ButtonStyle="ButtonStyle.Light" Click="@FiltrarHoy" />
+        <RadzenButton Text="Esta Semana" Icon="date_range" ButtonStyle="ButtonStyle.Light" Click="@FiltrarSemana" />
+    </RadzenStack>
+</RadzenCard>
+
+<RadzenCard class="rz-shadow-3 rz-mb-4">
+    <RadzenStack Orientation="Orientation.Horizontal" Gap="2rem" JustifyContent="JustifyContent.SpaceAround">
+        <div style="text-align: center;">
+            <RadzenText TextStyle="TextStyle.Overline">Total Sesiones</RadzenText>
+            <RadzenText TextStyle="TextStyle.H4">@sesiones.Count</RadzenText>
+        </div>
+        <div style="text-align: center;">
+            <RadzenText TextStyle="TextStyle.Overline">Minutos Totales</RadzenText>
+            <RadzenText TextStyle="TextStyle.H4">@sesiones.Sum(s => s.MinutosEstacionado)</RadzenText>
+        </div>
+        <div style="text-align: center;">
+            <RadzenText TextStyle="TextStyle.Overline">Recaudación</RadzenText>
+            <RadzenText TextStyle="TextStyle.H4">S/ @sesiones.Sum(s => s.MontoTotal).ToString("N2")</RadzenText>
+        </div>
+    </RadzenStack>
+</RadzenCard>
+
+<RadzenDataGrid Data="@sesiones" TItem="SesionEstacionamientoDto" 
+    AllowPaging="true" PageSize="15" PagerHorizontalAlign="HorizontalAlign.Center"
+    AllowSorting="true" AllowFiltering="true" FilterMode="FilterMode.Simple"
+    class="rz-shadow-3">
+    <Columns>
+        <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="Id" Title="ID" Width="60px" />
+        <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="UsuarioNombre" Title="Usuario" />
+        <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="CajonNumero" Title="Cajón" Width="80px" TextAlign="TextAlign.Center" />
+        <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="HoraEntrada" Title="Entrada" FormatString="{0:dd/MM/yy HH:mm}" Width="140px" />
+        <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="HoraSalida" Title="Salida" Width="140px">
+            <Template Context="sesion">
+                @(sesion.HoraSalida?.ToString("dd/MM/yy HH:mm") ?? "-")
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="MinutosEstacionado" Title="Minutos" Width="80px" TextAlign="TextAlign.Center" />
+        <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="TarifaPorMinuto" Title="Tarifa" Width="80px" FormatString="{0:C}" />
+        <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="MontoTotal" Title="Total" Width="100px" FormatString="{0:C}" />
+        <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="EstadoTexto" Title="Estado" Width="100px">
+            <Template Context="sesion">
+                <RadzenBadge BadgeStyle="@GetEstadoBadgeStyle(sesion.Estado)" Text="@sesion.EstadoTexto" />
+            </Template>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="TienePago" Title="Pago" Width="70px" TextAlign="TextAlign.Center">
+            <Template Context="sesion">
+                @if (sesion.TienePago)
+                {
+                    <RadzenIcon Icon="check_circle" Style="color: green;" />
+                }
+                else if (sesion.Estado == Domain.Enums.EstadoSesion.Activa)
+                {
+                    <RadzenIcon Icon="schedule" Style="color: orange;" />
+                }
+                else
+                {
+                    <RadzenIcon Icon="cancel" Style="color: red;" />
+                }
+            </Template>
+        </RadzenDataGridColumn>
+    </Columns>
+</RadzenDataGrid>
+
+@code {
+    private List<SesionEstacionamientoDto> sesiones = new();
+    private DateTime fechaDesde = DateTime.Today;
+    private DateTime fechaHasta = DateTime.Today.AddDays(1).AddSeconds(-1);
+
+    protected override async Task OnInitializedAsync()
+    {
+        await FiltrarHoy();
+    }
+
+    private async Task FiltrarSesiones()
+    {
+        sesiones = (await SesionService.GetSesionesByFechaAsync(fechaDesde, fechaHasta.AddDays(1).AddSeconds(-1))).ToList();
+    }
+
+    private async Task FiltrarHoy()
+    {
+        fechaDesde = DateTime.Today;
+        fechaHasta = DateTime.Today;
+        await FiltrarSesiones();
+    }
+
+    private async Task FiltrarSemana()
+    {
+        fechaDesde = DateTime.Today.AddDays(-(int)DateTime.Today.DayOfWeek + 1);
+        fechaHasta = fechaDesde.AddDays(6);
+        await FiltrarSesiones();
+    }
+
+    private BadgeStyle GetEstadoBadgeStyle(Domain.Enums.EstadoSesion estado)
+    {
+        return estado switch
+        {
+            Domain.Enums.EstadoSesion.Activa => BadgeStyle.Warning,
+            Domain.Enums.EstadoSesion.Finalizada => BadgeStyle.Success,
+            Domain.Enums.EstadoSesion.Cancelada => BadgeStyle.Danger,
+            _ => BadgeStyle.Secondary
+        };
+    }
+}

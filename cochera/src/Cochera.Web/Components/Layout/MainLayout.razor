@@ -1,0 +1,37 @@
+@inherits LayoutComponentBase
+@using Radzen
+@using Radzen.Blazor
+
+<RadzenLayout>
+    <RadzenHeader>
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0">
+            <RadzenSidebarToggle Click="@(() => sidebarExpanded = !sidebarExpanded)" />
+            <RadzenLabel Text="🅿️ Sistema de Cochera" Style="font-size: 1.5rem; font-weight: bold; margin-left: 12px;" />
+        </RadzenStack>
+    </RadzenHeader>
+    <RadzenSidebar @bind-Expanded="@sidebarExpanded">
+        <RadzenPanelMenu>
+            <RadzenPanelMenuItem Text="Dashboard" Icon="dashboard" Path="/" />
+            <RadzenPanelMenuItem Text="Estacionar" Icon="local_parking" Path="/estacionar" />
+            <RadzenPanelMenuItem Text="Historial Sesiones" Icon="history" Path="/sesiones" />
+            <RadzenPanelMenuItem Text="Eventos Sensores" Icon="sensors" Path="/eventos" />
+            <RadzenPanelMenuItem Text="Administración" Icon="admin_panel_settings" Expanded="false">
+                <RadzenPanelMenuItem Text="Tarifas" Icon="attach_money" Path="/admin/tarifas" />
+                <RadzenPanelMenuItem Text="Reportes" Icon="bar_chart" Path="/admin/reportes" />
+            </RadzenPanelMenuItem>
+        </RadzenPanelMenu>
+    </RadzenSidebar>
+    <RadzenBody>
+        <div class="rz-p-4">
+            @Body
+        </div>
+    </RadzenBody>
+</RadzenLayout>
+
+<RadzenDialog />
+<RadzenNotification />
+<RadzenTooltip />
+
+@code {
+    bool sidebarExpanded = true;
+}

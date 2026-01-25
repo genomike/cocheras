@@ -1,0 +1,249 @@
+@page "/estacionar"
+@using Cochera.Application.DTOs
+@using Cochera.Application.Interfaces
+@using Cochera.Domain.Enums
+@using Radzen
+@using Radzen.Blazor
+@inject IUsuarioService UsuarioService
+@inject ICajonService CajonService
+@inject ISesionService SesionService
+@inject ITarifaService TarifaService
+@inject NotificationService NotificationService
+@rendermode InteractiveServer
+
+<PageTitle>Estacionar - Cochera</PageTitle>
+
+<RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="rz-mb-4">
+    <RadzenIcon Icon="local_parking" /> Estacionar
+</RadzenText>
+
+<RadzenRow Gap="1rem">
+    <RadzenColumn Size="12" SizeMD="6">
+        <RadzenCard class="rz-shadow-3">
+            <RadzenText TextStyle="TextStyle.H5" class="rz-mb-4">Seleccionar Usuario</RadzenText>
+            
+            <RadzenFormField Text="Usuario" Variant="Variant.Outlined" Style="width: 100%;">
+                <RadzenDropDown @bind-Value="@usuarioSeleccionadoId" Data="@usuarios" 
+                    TextProperty="Nombre" ValueProperty="Id" Placeholder="Seleccione un usuario"
+                    Style="width: 100%;" Change="@OnUsuarioChanged" />
+            </RadzenFormField>
+
+            @if (sesionActiva != null)
+            {
+                <RadzenAlert AlertStyle="AlertStyle.Warning" class="rz-mt-4">
+                    <RadzenText><strong>Sesión Activa</strong></RadzenText>
+                    <RadzenText>Cajón: @sesionActiva.CajonNumero</RadzenText>
+                    <RadzenText>Entrada: @sesionActiva.HoraEntrada.ToString("HH:mm:ss")</RadzenText>
+                    <RadzenText>Tiempo: @sesionActiva.MinutosEstacionado minutos</RadzenText>
+                    <RadzenText>Monto actual: S/ @sesionActiva.MontoTotal.ToString("N2")</RadzenText>
+                </RadzenAlert>
+
+                <RadzenButton Text="Finalizar y Pagar" Icon="payment" ButtonStyle="ButtonStyle.Success" 
+                    Size="ButtonSize.Large" Style="width: 100%; margin-top: 1rem;"
+                    Click="@MostrarDialogoPago" />
+            }
+            else if (usuarioSeleccionadoId > 0)
+            {
+                <RadzenText TextStyle="TextStyle.H6" class="rz-mt-4 rz-mb-2">Seleccionar Cajón</RadzenText>
+                
+                <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" JustifyContent="JustifyContent.Center">
+                    @foreach (var cajon in cajones)
+                    {
+                        var cajonClass = "cajon " + (cajon.Estado == EstadoCajon.Ocupado ? "ocupado" : "libre");
+                        <RadzenCard class="@cajonClass" Style="cursor: pointer;" @onclick="() => SeleccionarCajon(cajon)">
+                            <RadzenText TextStyle="TextStyle.H5">Cajón @cajon.Numero</RadzenText>
+                            <RadzenText>@(cajon.Estado == EstadoCajon.Ocupado ? "🚗 Ocupado" : "✅ Libre")</RadzenText>
+                        </RadzenCard>
+                    }
+                </RadzenStack>
+
+                @if (cajonSeleccionado != null && cajonSeleccionado.Estado == EstadoCajon.Libre)
+                {
+                    <RadzenAlert AlertStyle="AlertStyle.Info" class="rz-mt-4">
+                        <RadzenText>Tarifa actual: S/ @tarifaActual?.PrecioPorMinuto.ToString("N2") por minuto</RadzenText>
+                    </RadzenAlert>
+
+                    <RadzenButton Text="Iniciar Estacionamiento" Icon="play_arrow" ButtonStyle="ButtonStyle.Primary" 
+                        Size="ButtonSize.Large" Style="width: 100%; margin-top: 1rem;"
+                        Click="@IniciarSesion" IsBusy="@procesando" />
+                }
+            }
+        </RadzenCard>
+    </RadzenColumn>
+
+    <RadzenColumn Size="12" SizeMD="6">
+        <RadzenCard class="rz-shadow-3">
+            <RadzenText TextStyle="TextStyle.H5" class="rz-mb-4">Historial del Usuario</RadzenText>
+            
+            @if (historialUsuario.Any())
+            {
+                <RadzenDataGrid Data="@historialUsuario" TItem="SesionEstacionamientoDto" 
+                    AllowPaging="true" PageSize="5" PagerHorizontalAlign="HorizontalAlign.Center">
+                    <Columns>
+                        <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="CajonNumero" Title="Cajón" Width="60px" />
+                        <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="HoraEntrada" Title="Entrada" FormatString="{0:dd/MM HH:mm}" />
+                        <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="MinutosEstacionado" Title="Min" Width="60px" />
+                        <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="MontoTotal" Title="Monto" FormatString="{0:C}" />
+                        <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="EstadoTexto" Title="Estado" Width="90px" />
+                    </Columns>
+                </RadzenDataGrid>
+            }
+            else
+            {
+                <RadzenText TextStyle="TextStyle.Body2" class="rz-color-secondary">
+                    @(usuarioSeleccionadoId > 0 ? "Sin historial de estacionamiento" : "Seleccione un usuario para ver su historial")
+                </RadzenText>
+            }
+        </RadzenCard>
+    </RadzenColumn>
+</RadzenRow>
+
+<!-- Dialog de Pago -->
+<RadzenDialog @ref="dialogPago" />
+
+<style>
+    .cajon {
+        padding: 2rem;
+        border-radius: 8px;
+        text-align: center;
+        min-width: 150px;
+        transition: transform 0.2s;
+    }
+    .cajon:hover {
+        transform: scale(1.05);
+    }
+    .cajon.libre {
+        background-color: #e8f5e9;
+        border: 2px solid #4caf50;
+    }
+    .cajon.ocupado {
+        background-color: #ffebee;
+        border: 2px solid #f44336;
+    }
+</style>
+
+@code {
+    private List<UsuarioDto> usuarios = new();
+    private List<CajonDto> cajones = new();
+    private List<SesionEstacionamientoDto> historialUsuario = new();
+    private int usuarioSeleccionadoId;
+    private CajonDto? cajonSeleccionado;
+    private SesionEstacionamientoDto? sesionActiva;
+    private TarifaDto? tarifaActual;
+    private bool procesando;
+    private RadzenDialog? dialogPago;
+    private MetodoPago metodoPagoSeleccionado = MetodoPago.Efectivo;
+
+    protected override async Task OnInitializedAsync()
+    {
+        usuarios = (await UsuarioService.GetUsuariosNoAdminAsync()).ToList();
+        cajones = (await CajonService.GetAllAsync()).ToList();
+        tarifaActual = await TarifaService.GetTarifaActivaAsync();
+    }
+
+    private async Task OnUsuarioChanged()
+    {
+        if (usuarioSeleccionadoId > 0)
+        {
+            sesionActiva = await SesionService.GetSesionActivaByUsuarioAsync(usuarioSeleccionadoId);
+            historialUsuario = (await SesionService.GetSesionesByUsuarioAsync(usuarioSeleccionadoId)).ToList();
+            cajones = (await CajonService.GetAllAsync()).ToList();
+        }
+        else
+        {
+            sesionActiva = null;
+            historialUsuario.Clear();
+        }
+        cajonSeleccionado = null;
+    }
+
+    private void SeleccionarCajon(CajonDto cajon)
+    {
+        if (cajon.Estado == EstadoCajon.Libre)
+        {
+            cajonSeleccionado = cajon;
+        }
+        else
+        {
+            NotificationService.Notify(NotificationSeverity.Warning, "Cajón Ocupado", "Este cajón no está disponible");
+        }
+    }
+
+    private async Task IniciarSesion()
+    {
+        if (cajonSeleccionado == null || usuarioSeleccionadoId == 0) return;
+
+        procesando = true;
+        try
+        {
+            var request = new IniciarSesionRequest
+            {
+                UsuarioId = usuarioSeleccionadoId,
+                CajonId = cajonSeleccionado.Id
+            };
+
+            sesionActiva = await SesionService.IniciarSesionAsync(request);
+            cajonSeleccionado = null;
+            cajones = (await CajonService.GetAllAsync()).ToList();
+            
+            NotificationService.Notify(NotificationSeverity.Success, "Sesión Iniciada", 
+                $"Estacionamiento iniciado en cajón {sesionActiva.CajonNumero}");
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Error", ex.Message);
+        }
+        finally
+        {
+            procesando = false;
+        }
+    }
+
+    private async Task MostrarDialogoPago()
+    {
+        if (sesionActiva == null) return;
+
+        var result = await DialogService.OpenAsync<DialogPago>("Finalizar y Pagar",
+            new Dictionary<string, object> { { "Sesion", sesionActiva } },
+            new DialogOptions { Width = "400px", Height = "auto" });
+
+        if (result is MetodoPago metodo)
+        {
+            await FinalizarSesion(metodo);
+        }
+    }
+
+    [Inject] private DialogService DialogService { get; set; } = null!;
+
+    private async Task FinalizarSesion(MetodoPago metodoPago)
+    {
+        if (sesionActiva == null) return;
+
+        procesando = true;
+        try
+        {
+            var request = new FinalizarSesionRequest
+            {
+                SesionId = sesionActiva.Id,
+                MetodoPago = metodoPago
+            };
+
+            var sesionFinalizada = await SesionService.FinalizarSesionAsync(request);
+            
+            NotificationService.Notify(NotificationSeverity.Success, "Pago Completado", 
+                $"Total: S/ {sesionFinalizada.MontoTotal:N2}");
+
+            sesionActiva = null;
+            historialUsuario = (await SesionService.GetSesionesByUsuarioAsync(usuarioSeleccionadoId)).ToList();
+            cajones = (await CajonService.GetAllAsync()).ToList();
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Error", ex.Message);
+        }
+        finally
+        {
+            procesando = false;
+        }
+    }
+}

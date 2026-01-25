@@ -31,7 +31,7 @@ const int DISTANCIA_MIN = 3;    // Ignorar lecturas menores a 3cm (ruido)
 const unsigned long DEBOUNCE_MS = 800;  // 800ms para mayor estabilidad
 const unsigned long DEBOUNCE_ENTRADA = 200;  // Entrada más sensible (objeto en movimiento)
 const unsigned long PARPADEO_INTERVALO = 100;  // Parpadeo rápido
-const unsigned long TIMEOUT_PARPADEO = 15000;
+const unsigned long TIMEOUT_PARPADEO = 60000;
 const int LECTURAS_CONFIRMAR = 3;  // Número de lecturas consecutivas para confirmar
 
 // --- VARIABLES GLOBALES ---
@@ -473,7 +473,8 @@ void loop() {
   }
 
   // === EVENTO: COCHERA SE LLENÓ ===
-  if (cochera_llena && !cochera_llena_prev) {
+  if (cochera_llena && !cochera_estuvo_llena) {
+    cochera_estuvo_llena = true;  // Marcar que ahora está llena
     publicarMensaje("COCHERA_LLENA", "Todos los cajones ocupados");
     tonoLleno();
     Serial.println(">>> COCHERA LLENA");
