@@ -9,6 +9,7 @@
 @inject ICajonService CajonService
 @inject ISesionService SesionService
 @inject ITarifaService TarifaService
+@inject IEstadoCocheraService EstadoCocheraService
 @inject ISesionNotificationService SesionNotificationService
 @inject UsuarioActualService UsuarioActualService
 @inject NavigationManager Navigation
@@ -402,6 +403,16 @@ else
         cajones = (await CajonService.GetAllAsync()).ToList();
         tarifaActual = await TarifaService.GetTarifaActivaAsync();
         
+        // Sincronizar cajones con el estado real de los sensores
+        var estadoCochera = await EstadoCocheraService.GetEstadoActualAsync();
+        if (estadoCochera != null && cajones.Count >= 2)
+        {
+            var cajon1 = cajones.FirstOrDefault(c => c.Numero == 1);
+            var cajon2 = cajones.FirstOrDefault(c => c.Numero == 2);
+            if (cajon1 != null) cajon1.Estado = estadoCochera.Cajon1Ocupado ? EstadoCajon.Ocupado : EstadoCajon.Libre;
+            if (cajon2 != null) cajon2.Estado = estadoCochera.Cajon2Ocupado ? EstadoCajon.Ocupado : EstadoCajon.Libre;
+        }
+        
         if (UsuarioActualService.UsuarioId.HasValue)
         {
             sesionActiva = await SesionService.GetSesionActivaByUsuarioAsync(UsuarioActualService.UsuarioId.Value);
@@ -418,7 +429,7 @@ else
             .WithAutomaticReconnect()
             .Build();
 
-        // Nueva sesión creada para este usuario
+        // Nueva sesión creada para este usuario - ACTUALIZAR VISTA AUTOMÁTICAMENTE
         hubConnection.On<SesionEstacionamientoDto>("MiNuevaSesion", async (sesion) =>
         {
             sesionActiva = sesion;
@@ -426,24 +437,8 @@ else
             mostrarMensajeDespedida = false;
             await InvokeAsync(StateHasChanged);
             
-            // Mostrar popup de bienvenida
-            await InvokeAsync(async () =>
-            {
-                var resultado = await DialogService.Confirm(
-                    $"Se ha iniciado tu sesión en el Cajón {sesion.CajonNumero}. Tarifa: S/ {sesion.TarifaPorMinuto:N2}/min",
-                    "🚗 ¡Bienvenido a la Cochera!",
-                    new ConfirmOptions 
-                    { 
-                        OkButtonText = "Ver Mi Estacionamiento", 
-                        CancelButtonText = "Cerrar",
-                        Width = "400px"
-                    });
-                
-                if (resultado == true)
-                {
-                    Navigation.NavigateTo("/usuario/estacionamiento", forceLoad: true);
-                }
-            });
+            NotificationService.Notify(NotificationSeverity.Success, "🚗 ¡Sesión Iniciada!", 
+                $"Bienvenido! Te asignamos el Cajón {sesion.CajonNumero}");
         });
 
         // Admin solicita cierre de sesión

@@ -65,7 +65,32 @@
             <RadzenIcon Icon="logout" /> Registrar Salida de Vehículo
         </RadzenText>
 
-        @if (SesionesActivas.Any())
+        @if (sesionSeleccionada != null)
+        {
+            <!-- Sesión pre-seleccionada automáticamente -->
+            <RadzenAlert AlertStyle="AlertStyle.Success" class="rz-mb-2">
+                <RadzenIcon Icon="check_circle" /> Usuario identificado automáticamente
+            </RadzenAlert>
+            
+            <RadzenCard class="rz-background-color-warning-lighter">
+                <RadzenText TextStyle="TextStyle.Body1">
+                    <strong>Usuario:</strong> @sesionSeleccionada.UsuarioNombre<br/>
+                    <strong>Cajón:</strong> @sesionSeleccionada.CajonNumero<br/>
+                    <strong>Hora entrada:</strong> @sesionSeleccionada.HoraEntrada.ToString("HH:mm:ss")<br/>
+                    <strong>Tiempo:</strong> @sesionSeleccionada.TiempoFormateado<br/>
+                    <RadzenText TextStyle="TextStyle.H5" Style="color: var(--rz-success); margin-top: 0.5rem;">
+                        Monto a cobrar: S/ @sesionSeleccionada.MontoTotal.ToString("N2")
+                    </RadzenText>
+                </RadzenText>
+            </RadzenCard>
+
+            <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" JustifyContent="JustifyContent.End" class="rz-mt-3">
+                <RadzenButton Text="Cancelar" ButtonStyle="ButtonStyle.Light" Click="@Cancelar" />
+                <RadzenButton Text="Confirmar Salida" Icon="logout" ButtonStyle="ButtonStyle.Warning" 
+                    Click="@ConfirmarSalida" />
+            </RadzenStack>
+        }
+        else if (SesionesActivas.Any())
         {
             <RadzenText TextStyle="TextStyle.Body1">
                 Seleccione la sesión del usuario que está saliendo:
@@ -92,19 +117,6 @@
                     </RadzenCard>
                 </Template>
             </RadzenDataList>
-
-            @if (sesionSeleccionada != null)
-            {
-                <RadzenCard class="rz-background-color-warning-lighter">
-                    <RadzenText TextStyle="TextStyle.Body1">
-                        <strong>Sesión seleccionada:</strong><br/>
-                        Usuario: @sesionSeleccionada.UsuarioNombre<br/>
-                        Cajón: @sesionSeleccionada.CajonNumero<br/>
-                        Tiempo: @sesionSeleccionada.TiempoFormateado<br/>
-                        <strong>Monto a cobrar: S/ @sesionSeleccionada.MontoTotal.ToString("N2")</strong>
-                    </RadzenText>
-                </RadzenCard>
-            }
 
             <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" JustifyContent="JustifyContent.End">
                 <RadzenButton Text="Cancelar" ButtonStyle="ButtonStyle.Light" Click="@Cancelar" />

@@ -239,6 +239,15 @@ else
     {
         cajones = (await CajonService.GetAllAsync()).ToList();
         estadoCochera = await EstadoCocheraService.GetEstadoActualAsync();
+        
+        // Sincronizar el estado de los cajones con el estado de la cochera (sensores)
+        if (estadoCochera != null && cajones.Count >= 2)
+        {
+            var cajon1 = cajones.FirstOrDefault(c => c.Numero == 1);
+            var cajon2 = cajones.FirstOrDefault(c => c.Numero == 2);
+            if (cajon1 != null) cajon1.Estado = estadoCochera.Cajon1Ocupado ? EstadoCajon.Ocupado : EstadoCajon.Libre;
+            if (cajon2 != null) cajon2.Estado = estadoCochera.Cajon2Ocupado ? EstadoCajon.Ocupado : EstadoCajon.Libre;
+        }
     }
 
     private async Task SetupSignalR()
@@ -275,25 +284,22 @@ else
             await InvokeAsync(StateHasChanged);
         });
 
-        // Nueva sesión creada - mostrar popup
+        // Nueva sesión creada - NAVEGAR AUTOMÁTICAMENTE a Mi Estacionamiento
         hubConnection.On<SesionEstacionamientoDto>("MiNuevaSesion", async (sesion) =>
         {
-            await InvokeAsync(async () =>
+            await InvokeAsync(() =>
             {
-                var resultado = await DialogService.Confirm(
-                    $"Se ha iniciado tu sesión en el Cajón {sesion.CajonNumero}. Tarifa: S/ {sesion.TarifaPorMinuto:N2}/min",
-                    "🚗 ¡Bienvenido a la Cochera!",
-                    new ConfirmOptions 
-                    { 
-                        OkButtonText = "Ver Mi Estacionamiento", 
-                        CancelButtonText = "Cerrar",
-                        Width = "400px"
-                    });
-                
-                if (resultado == true)
-                {
-                    Navigation.NavigateTo("/usuario/estacionamiento");
-                }
+                // Navegar directamente sin preguntar
+                Navigation.NavigateTo("/usuario/estacionamiento", forceLoad: true);
+            });
+        });
+
+        // Solicitud de pago - NAVEGAR AUTOMÁTICAMENTE a Mi Estacionamiento
+        hubConnection.On<SesionEstacionamientoDto>("SolicitudCierreSesion", async (sesion) =>
+        {
+            await InvokeAsync(() =>
+            {
+                Navigation.NavigateTo("/usuario/estacionamiento", forceLoad: true);
             });
         });
 

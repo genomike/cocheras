@@ -35,7 +35,7 @@ else
         <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
             <RadzenButton Icon="refresh" Text="Actualizar" ButtonStyle="ButtonStyle.Light" Click="@LoadDashboard" />
             <RadzenButton Icon="add_circle" Text="ABRIR POPUP" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Large"
-                Click="@(() => MostrarPopupMovimiento(true))" />
+                Click="@(() => MostrarPopupMovimiento(true, null))" />
         </RadzenStack>
     </RadzenStack>
 
@@ -297,19 +297,20 @@ else
         {
             _logger?.LogInformation("🚗🚗🚗 POPUP! VehiculoDetectadoEnEntrada recibido en Dashboard: {Tipo}", evento.TipoEventoTexto);
             
-            // Solo mostrar popup si la cochera NO está llena
-            if (dashboard != null && !dashboard.EstadoActual.CocheraLlena)
-            {
-                await InvokeAsync(async () => 
-                {
-                    NotificationService.Notify(NotificationSeverity.Info, "🚗 VEHÍCULO DETECTADO", "Abriendo popup...");
-                    await MostrarPopupMovimiento(evento.TipoEvento == TipoEvento.MovimientoEntrada);
-                });
-            }
-            else if (dashboard?.EstadoActual.CocheraLlena == true)
+            // Solo mostrar popup si la cochera NO está llena (para entrada)
+            bool esEntrada = evento.TipoEvento == TipoEvento.MovimientoEntrada;
+            
+            if (esEntrada && dashboard?.EstadoActual.CocheraLlena == true)
             {
                 await InvokeAsync(() => NotificationService.Notify(NotificationSeverity.Error, "🚫 Cochera Llena", "No se puede registrar entrada - cochera llena"));
+                return;
             }
+            
+            await InvokeAsync(async () => 
+            {
+                NotificationService.Notify(NotificationSeverity.Info, "🚗 VEHÍCULO DETECTADO", "Abriendo popup...");
+                await MostrarPopupMovimiento(esEntrada, evento);
+            });
         });
 
         await hubConnection.StartAsync();
@@ -319,7 +320,7 @@ else
         _logger?.LogInformation("✅ Dashboard unido al grupo 'admins'");
     }
 
-    private async Task MostrarPopupMovimiento(bool esEntrada)
+    private async Task MostrarPopupMovimiento(bool esEntrada, EventoSensorDto? evento = null)
     {
         // Cargar datos necesarios
         var usuarios = (await UsuarioService.GetAllAsync()).Where(u => !u.EsAdmin).ToList();
@@ -334,12 +335,33 @@ else
         
         var sesionesActivas = (await SesionService.GetSesionesActivasAsync()).ToList();
         
-        // Si es SALIDA, pre-seleccionar la sesión basada en el cajón que se liberó
+        // Si es SALIDA, identificar el cajón que se liberó y pre-seleccionar la sesión correspondiente
         SesionEstacionamientoDto? sesionPreseleccionada = null;
-        if (!esEntrada && sesionesActivas.Count == 1)
+        if (!esEntrada && evento != null)
         {
-            // Si solo hay una sesión activa, auto-seleccionarla
-            sesionPreseleccionada = sesionesActivas.First();
+            // Determinar qué cajón se liberó basándonos en el evento
+            int? cajonLiberado = null;
+            if (evento.EstadoCajon1 == "LIBRE" && evento.EstadoCajon2 == "OCUPADO")
+            {
+                cajonLiberado = 1;
+            }
+            else if (evento.EstadoCajon2 == "LIBRE" && evento.EstadoCajon1 == "OCUPADO")
+            {
+                cajonLiberado = 2;
+            }
+            else if (sesionesActivas.Count == 1)
+            {
+                // Si solo hay una sesión activa, usar esa
+                sesionPreseleccionada = sesionesActivas.First();
+            }
+            
+            if (cajonLiberado.HasValue)
+            {
+                sesionPreseleccionada = sesionesActivas.FirstOrDefault(s => s.CajonNumero == cajonLiberado.Value);
+            }
+            
+            _logger?.LogInformation("🔍 Cajón liberado: {Cajon}, Sesión preseleccionada: {Sesion}", 
+                cajonLiberado, sesionPreseleccionada?.UsuarioNombre ?? "ninguna");
         }
 
         var result = await DialogService.OpenAsync<DialogoMovimiento>(
@@ -350,7 +372,7 @@ else
                 { "UsuariosDisponibles", usuarios },
                 { "CajonesDisponibles", cajones },
                 { "SesionesActivas", sesionesActivas },
-                { "SesionPreseleccionada", sesionPreseleccionada }
+                { "SesionPreseleccionada", sesionPreseleccionada! }
             },
             new DialogOptions
             {
