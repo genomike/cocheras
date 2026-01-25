@@ -148,6 +148,7 @@ else
     private List<SesionEstacionamientoDto> sesionesActivas = new();
     private List<SesionEstacionamientoDto> sesionesPendientes = new();
     private HubConnection? hubConnection;
+    private System.Timers.Timer? actualizadorAutomatico;
 
     protected override async Task OnInitializedAsync()
     {
@@ -159,6 +160,19 @@ else
         
         await LoadSesiones();
         await SetupSignalR();
+        SetupActualizadorAutomatico();
+    }
+    
+    private void SetupActualizadorAutomatico()
+    {
+        // Actualizar cada 30 segundos para mantener tiempos y montos frescos
+        actualizadorAutomatico = new System.Timers.Timer(30000);
+        actualizadorAutomatico.Elapsed += async (sender, e) =>
+        {
+            await LoadSesiones();
+            await InvokeAsync(StateHasChanged);
+        };
+        actualizadorAutomatico.Start();
     }
 
     private async Task LoadSesiones()
@@ -266,6 +280,9 @@ else
 
     public async ValueTask DisposeAsync()
     {
+        actualizadorAutomatico?.Stop();
+        actualizadorAutomatico?.Dispose();
+        
         if (hubConnection != null)
         {
             await hubConnection.DisposeAsync();

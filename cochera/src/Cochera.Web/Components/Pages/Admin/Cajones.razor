@@ -3,12 +3,15 @@
 @using Cochera.Application.Interfaces
 @using Cochera.Web.Services
 @using Cochera.Domain.Enums
+@using Microsoft.AspNetCore.SignalR.Client
 @using Radzen
 @using Radzen.Blazor
 @inject ICajonService CajonService
+@inject IEstadoCocheraService EstadoCocheraService
 @inject UsuarioActualService UsuarioActualService
 @inject NavigationManager Navigation
 @inject NotificationService NotificationService
+@implements IAsyncDisposable
 @rendermode InteractiveServer
 
 <PageTitle>Gestión de Cajones - Admin</PageTitle>
@@ -116,6 +119,7 @@ else
 
 @code {
     private List<CajonDto> cajones = new();
+    private HubConnection? hubConnection;
 
     protected override async Task OnInitializedAsync()
     {
@@ -126,10 +130,63 @@ else
         }
         
         await LoadCajones();
+        await SetupSignalR();
     }
 
     private async Task LoadCajones()
     {
         cajones = (await CajonService.GetAllAsync()).ToList();
+        
+        // Sincronizar con el estado real de los sensores
+        var estadoCochera = await EstadoCocheraService.GetEstadoActualAsync();
+        if (estadoCochera != null && cajones.Count >= 2)
+        {
+            var cajon1 = cajones.FirstOrDefault(c => c.Numero == 1);
+            var cajon2 = cajones.FirstOrDefault(c => c.Numero == 2);
+            if (cajon1 != null) cajon1.Estado = estadoCochera.Cajon1Ocupado ? EstadoCajon.Ocupado : EstadoCajon.Libre;
+            if (cajon2 != null) cajon2.Estado = estadoCochera.Cajon2Ocupado ? EstadoCajon.Ocupado : EstadoCajon.Libre;
+        }
+    }
+    
+    private async Task SetupSignalR()
+    {
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/cocherahub"))
+            .WithAutomaticReconnect()
+            .Build();
+
+        hubConnection.On<EstadoCocheraDto>("RecibirEstado", async (estado) =>
+        {
+            if (cajones.Count >= 2)
+            {
+                var cajon1 = cajones.FirstOrDefault(c => c.Numero == 1);
+                var cajon2 = cajones.FirstOrDefault(c => c.Numero == 2);
+                if (cajon1 != null) cajon1.Estado = estado.Cajon1Ocupado ? EstadoCajon.Ocupado : EstadoCajon.Libre;
+                if (cajon2 != null) cajon2.Estado = estado.Cajon2Ocupado ? EstadoCajon.Ocupado : EstadoCajon.Libre;
+            }
+            await InvokeAsync(StateHasChanged);
+        });
+
+        hubConnection.On<EstadoCocheraDto>("ActualizarCajones", async (estado) =>
+        {
+            if (cajones.Count >= 2)
+            {
+                var cajon1 = cajones.FirstOrDefault(c => c.Numero == 1);
+                var cajon2 = cajones.FirstOrDefault(c => c.Numero == 2);
+                if (cajon1 != null) cajon1.Estado = estado.Cajon1Ocupado ? EstadoCajon.Ocupado : EstadoCajon.Libre;
+                if (cajon2 != null) cajon2.Estado = estado.Cajon2Ocupado ? EstadoCajon.Ocupado : EstadoCajon.Libre;
+            }
+            await InvokeAsync(StateHasChanged);
+        });
+
+        await hubConnection.StartAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection != null)
+        {
+            await hubConnection.DisposeAsync();
+        }
     }
 }

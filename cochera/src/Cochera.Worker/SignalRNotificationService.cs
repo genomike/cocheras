@@ -11,6 +11,7 @@ public class SignalRNotificationService : ISignalRNotificationService, IAsyncDis
     private readonly ILogger<SignalRNotificationService> _logger;
     private readonly string _hubUrl;
     private bool _isConnecting = false;
+    private bool _initialConnectionAttempted = false;
 
     public SignalRNotificationService(IConfiguration configuration, ILogger<SignalRNotificationService> logger)
     {
@@ -21,13 +22,13 @@ public class SignalRNotificationService : ISignalRNotificationService, IAsyncDis
         
         _hubConnection = new HubConnectionBuilder()
             .WithUrl(_hubUrl)
-            .WithAutomaticReconnect(new[] { TimeSpan.Zero, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(10) })
+            .WithAutomaticReconnect(new[] { TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(30) })
             .Build();
 
         _hubConnection.Closed += async (error) =>
         {
             _logger.LogWarning("❌ SignalR desconectado: {Error}", error?.Message ?? "Sin error");
-            await Task.Delay(TimeSpan.FromSeconds(3));
+            await Task.Delay(TimeSpan.FromSeconds(5));
             await EnsureConnectedAsync();
         };
 
@@ -43,7 +44,8 @@ public class SignalRNotificationService : ISignalRNotificationService, IAsyncDis
             return Task.CompletedTask;
         };
 
-        _ = EnsureConnectedAsync();
+        // NO conectar inmediatamente en el constructor, esperar a que se use
+        // La conexión se establecerá cuando se intente enviar el primer mensaje
     }
 
     private async Task EnsureConnectedAsync()
@@ -55,25 +57,39 @@ public class SignalRNotificationService : ISignalRNotificationService, IAsyncDis
         try
         {
             int retries = 0;
-            while (_hubConnection.State != HubConnectionState.Connected && retries < 10)
+            int maxRetries = _initialConnectionAttempted ? 3 : 30; // Más intentos la primera vez
+            
+            while (_hubConnection.State != HubConnectionState.Connected && retries < maxRetries)
             {
                 try
                 {
-                    _logger.LogInformation("🔌 Intentando conectar al Hub SignalR ({Url})... Intento {Retry}", _hubUrl, retries + 1);
+                    if (!_initialConnectionAttempted)
+                    {
+                        _logger.LogInformation("🔌 Intentando conectar al Hub SignalR ({Url})... Intento {Retry}", _hubUrl, retries + 1);
+                    }
                     await _hubConnection.StartAsync();
                     _logger.LogInformation("✅ Conectado al Hub SignalR exitosamente");
+                    _initialConnectionAttempted = true;
                     break;
                 }
                 catch (Exception ex)
                 {
                     retries++;
-                    _logger.LogWarning("⚠️ Error al conectar con SignalR Hub (intento {Retry}): {Error}", retries, ex.Message);
-                    if (retries < 10)
+                    if (retries == 1 || retries % 5 == 0) // Solo loguear cada 5 intentos para no saturar
                     {
-                        await Task.Delay(TimeSpan.FromSeconds(Math.Min(retries * 2, 30)));
+                        _logger.LogWarning("⚠️ SignalR Hub no disponible (intento {Retry}/{Max}): {Error}", retries, maxRetries, ex.Message);
+                    }
+                    if (retries < maxRetries)
+                    {
+                        // Esperar más tiempo entre intentos para dar tiempo a que Web inicie
+                        var delay = _initialConnectionAttempted ? 
+                            TimeSpan.FromSeconds(Math.Min(retries * 3, 15)) : 
+                            TimeSpan.FromSeconds(3); // Espera fija de 3s la primera vez
+                        await Task.Delay(delay);
                     }
                 }
             }
+            _initialConnectionAttempted = true;
         }
         finally
         {

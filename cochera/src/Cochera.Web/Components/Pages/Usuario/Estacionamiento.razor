@@ -522,6 +522,8 @@ else
         // Nueva sesión creada para este usuario - ACTUALIZAR VISTA AUTOMÁTICAMENTE
         hubConnection.On<SesionEstacionamientoDto>("MiNuevaSesion", async (sesion) =>
         {
+            // Recargar todos los datos para asegurar que la UI cambie de disponibilidad a sesión activa
+            await LoadData();
             sesionActiva = sesion;
             sesionPendientePago = null;
             mostrarMensajeDespedida = false;
@@ -582,6 +584,17 @@ else
                 if (cajon1 != null) cajon1.Estado = estado.Cajon1Ocupado ? EstadoCajon.Ocupado : EstadoCajon.Libre;
                 if (cajon2 != null) cajon2.Estado = estado.Cajon2Ocupado ? EstadoCajon.Ocupado : EstadoCajon.Libre;
             }
+            
+            // VERIFICAR SI EL USUARIO TIENE SESIÓN ACTIVA - crucial para cambiar de disponibilidad a sesión activa
+            if (UsuarioActualService.UsuarioId.HasValue && sesionActiva == null)
+            {
+                var sesion = await SesionService.GetSesionActivaByUsuarioAsync(UsuarioActualService.UsuarioId.Value);
+                if (sesion != null)
+                {
+                    sesionActiva = sesion;
+                }
+            }
+            
             await InvokeAsync(StateHasChanged);
         });
 
@@ -595,6 +608,17 @@ else
                 if (cajon1 != null) cajon1.Estado = estado.Cajon1Ocupado ? EstadoCajon.Ocupado : EstadoCajon.Libre;
                 if (cajon2 != null) cajon2.Estado = estado.Cajon2Ocupado ? EstadoCajon.Ocupado : EstadoCajon.Libre;
             }
+            
+            // VERIFICAR SI EL USUARIO TIENE SESIÓN ACTIVA - crucial para cambiar de disponibilidad a sesión activa
+            if (UsuarioActualService.UsuarioId.HasValue && sesionActiva == null)
+            {
+                var sesion = await SesionService.GetSesionActivaByUsuarioAsync(UsuarioActualService.UsuarioId.Value);
+                if (sesion != null)
+                {
+                    sesionActiva = sesion;
+                }
+            }
+            
             await InvokeAsync(StateHasChanged);
         });
 

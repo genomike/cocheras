@@ -9,6 +9,7 @@
 @inject ISesionService SesionService
 @inject IUsuarioService UsuarioService
 @inject ICajonService CajonService
+@inject IEstadoCocheraService EstadoCocheraService
 @inject IEventoSensorService EventoSensorService
 @inject ISesionNotificationService SesionNotificationService
 @inject UsuarioActualService UsuarioActualService
@@ -312,7 +313,18 @@ else
         sesionesActivas = (await SesionService.GetSesionesActivasAsync()).ToList();
         sesionesPendientes = (await SesionService.GetSesionesPendientesPagoAsync()).ToList();
         usuarios = (await UsuarioService.GetUsuariosNoAdminAsync()).ToList();
-        var cajones = await CajonService.GetAllAsync();
+        var cajones = (await CajonService.GetAllAsync()).ToList();
+        
+        // Sincronizar cajones con el estado real de los sensores
+        var estadoCochera = await EstadoCocheraService.GetEstadoActualAsync();
+        if (estadoCochera != null && cajones.Count >= 2)
+        {
+            var cajon1 = cajones.FirstOrDefault(c => c.Numero == 1);
+            var cajon2 = cajones.FirstOrDefault(c => c.Numero == 2);
+            if (cajon1 != null) cajon1.Estado = estadoCochera.Cajon1Ocupado ? EstadoCajon.Ocupado : EstadoCajon.Libre;
+            if (cajon2 != null) cajon2.Estado = estadoCochera.Cajon2Ocupado ? EstadoCajon.Ocupado : EstadoCajon.Libre;
+        }
+        
         cajonesDisponibles = cajones.Where(c => c.Estado == EstadoCajon.Libre).ToList();
         ultimaActualizacion = DateTime.Now;
     }

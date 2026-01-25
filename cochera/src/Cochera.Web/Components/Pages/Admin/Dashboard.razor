@@ -11,6 +11,7 @@
 @inject IUsuarioService UsuarioService
 @inject ISesionService SesionService
 @inject ISesionNotificationService SesionNotificationService
+@inject IEstadoCocheraService EstadoCocheraService
 @inject UsuarioActualService UsuarioActualService
 @inject NavigationManager Navigation
 @inject NotificationService NotificationService
@@ -213,6 +214,7 @@ else
 @code {
     private DashboardDto? dashboard;
     private HubConnection? hubConnection;
+    System.Timers.Timer? actualizadorAutomatico;
 
     protected override async Task OnInitializedAsync()
     {
@@ -224,11 +226,31 @@ else
         
         await LoadDashboard();
         await SetupSignalR();
+        SetupActualizadorAutomatico();
+    }
+    
+    private void SetupActualizadorAutomatico()
+    {
+        // Actualizar cada 30 segundos para mantener datos frescos (sesiones, montos, etc.)
+        actualizadorAutomatico = new System.Timers.Timer(30000);
+        actualizadorAutomatico.Elapsed += async (sender, e) =>
+        {
+            await LoadDashboard();
+            await InvokeAsync(StateHasChanged);
+        };
+        actualizadorAutomatico.Start();
     }
 
     private async Task LoadDashboard()
     {
         dashboard = await DashboardService.GetDashboardAsync();
+        
+        // Sincronizar el estado de los cajones con los sensores reales
+        var estadoCochera = await EstadoCocheraService.GetEstadoActualAsync();
+        if (estadoCochera != null && dashboard != null)
+        {
+            dashboard.EstadoActual = estadoCochera;
+        }
     }
 
     private async Task ResetearCajones()
@@ -328,7 +350,17 @@ else
         var todosLosUsuarios = (await UsuarioService.GetAllAsync()).Where(u => !u.EsAdmin).ToList();
         // Filtrar usuarios que NO tienen sesión activa
         var usuarios = todosLosUsuarios.Where(u => !usuariosConSesion.Contains(u.Id)).ToList();
+        
+        // Sincronizar cajones con el estado real de los sensores ANTES de filtrar
+        var estadoCochera = await ServiceProvider.GetRequiredService<IEstadoCocheraService>().GetEstadoActualAsync();
         var todosLosCajones = (await CajonService.GetAllAsync()).ToList();
+        if (estadoCochera != null && todosLosCajones.Count >= 2)
+        {
+            var cajon1 = todosLosCajones.FirstOrDefault(c => c.Numero == 1);
+            var cajon2 = todosLosCajones.FirstOrDefault(c => c.Numero == 2);
+            if (cajon1 != null) cajon1.Estado = estadoCochera.Cajon1Ocupado ? EstadoCajon.Ocupado : EstadoCajon.Libre;
+            if (cajon2 != null) cajon2.Estado = estadoCochera.Cajon2Ocupado ? EstadoCajon.Ocupado : EstadoCajon.Libre;
+        }
         var cajones = todosLosCajones.Where(c => c.Estado == EstadoCajon.Libre).ToList();
         
         _logger?.LogInformation("🔍 Usuarios totales: {Total}, sin sesión activa: {Disponibles}", todosLosUsuarios.Count, usuarios.Count);
@@ -430,6 +462,9 @@ else
 
     public async ValueTask DisposeAsync()
     {
+        actualizadorAutomatico?.Stop();
+        actualizadorAutomatico?.Dispose();
+        
         if (hubConnection != null)
         {
             await hubConnection.DisposeAsync();
