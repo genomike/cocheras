@@ -24,9 +24,9 @@ const int ledVerde = 32;    const int ledRojo = 33;
 const int buzzerPin = 15;  
 
 // --- CONSTANTES ---
-// Techo: 20cm, Vehículos: 7.5-8cm -> Distancia con carro: ~12cm
-// Umbral ESTRICTO: 13cm (solo detecta autos realmente estacionados)
-const int UMBRAL_OCUPADO = 13;
+// Techo: 20cm, Vehículos NUEVOS: 4.5-5cm -> Distancia con carro: ~15-15.5cm
+// Umbral ajustado: 16cm (detecta autos pequeños de 4.5-5cm, ignora vacío de ~20cm)
+const int UMBRAL_OCUPADO = 16;
 const int DISTANCIA_MIN = 3;    // Ignorar lecturas menores a 3cm (ruido)
 const unsigned long DEBOUNCE_MS = 800;  // 800ms para mayor estabilidad
 const unsigned long DEBOUNCE_ENTRADA = 200;  // Entrada más sensible (objeto en movimiento)

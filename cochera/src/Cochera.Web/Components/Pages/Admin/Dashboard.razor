@@ -323,17 +323,20 @@ else
     private async Task MostrarPopupMovimiento(bool esEntrada, EventoSensorDto? evento = null)
     {
         // Cargar datos necesarios
-        var usuarios = (await UsuarioService.GetAllAsync()).Where(u => !u.EsAdmin).ToList();
+        var sesionesActivas = (await SesionService.GetSesionesActivasAsync()).ToList();
+        var usuariosConSesion = sesionesActivas.Select(s => s.UsuarioId).ToHashSet();
+        var todosLosUsuarios = (await UsuarioService.GetAllAsync()).Where(u => !u.EsAdmin).ToList();
+        // Filtrar usuarios que NO tienen sesión activa
+        var usuarios = todosLosUsuarios.Where(u => !usuariosConSesion.Contains(u.Id)).ToList();
         var todosLosCajones = (await CajonService.GetAllAsync()).ToList();
         var cajones = todosLosCajones.Where(c => c.Estado == EstadoCajon.Libre).ToList();
         
+        _logger?.LogInformation("🔍 Usuarios totales: {Total}, sin sesión activa: {Disponibles}", todosLosUsuarios.Count, usuarios.Count);
         _logger?.LogInformation("🔍 Cajones totales: {Total}, Cajones libres: {Libres}", todosLosCajones.Count, cajones.Count);
         foreach (var c in todosLosCajones)
         {
             _logger?.LogInformation("   Cajón {Num}: {Estado}", c.Numero, c.Estado);
         }
-        
-        var sesionesActivas = (await SesionService.GetSesionesActivasAsync()).ToList();
         
         // Si es SALIDA, identificar el cajón que se liberó y pre-seleccionar la sesión correspondiente
         SesionEstacionamientoDto? sesionPreseleccionada = null;

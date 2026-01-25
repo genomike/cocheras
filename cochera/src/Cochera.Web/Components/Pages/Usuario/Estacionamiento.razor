@@ -1,4 +1,5 @@
 @page "/usuario/estacionamiento"
+@page "/usuario/disponibilidad"
 @using Cochera.Application.DTOs
 @using Cochera.Application.Interfaces
 @using Cochera.Web.Services
@@ -190,32 +191,53 @@ else
     }
     else
     {
-        <!-- ESTADO: Sin sesión activa -->
-        <RadzenAlert AlertStyle="AlertStyle.Info" class="rz-mb-4">
-            No tienes ninguna sesión de estacionamiento activa. El administrador registrará tu entrada cuando llegues.
-        </RadzenAlert>
+        <!-- ESTADO: Sin sesión activa - MOSTRAR DISPONIBILIDAD -->
+        <div class="page-header">
+            <RadzenIcon Icon="local_parking" class="page-icon" />
+            <span class="page-title">Mi Estacionamiento</span>
+        </div>
 
-        <RadzenCard class="rz-shadow-3 rz-mb-4">
-            <RadzenText TextStyle="TextStyle.H5" class="rz-mb-2">
-                <RadzenIcon Icon="info" /> Información de Tarifa
-            </RadzenText>
-            @if (tarifaActual != null)
-            {
-                <RadzenText>Tarifa actual: <strong>S/ @tarifaActual.PrecioPorMinuto.ToString("N2") por minuto</strong></RadzenText>
-                <RadzenText TextStyle="TextStyle.Caption" class="rz-mt-2">
-                    * La fracción de minuto se cobra como minuto completo.
-                </RadzenText>
-            }
-        </RadzenCard>
+        <p class="welcome-text">
+            Hola, <strong>@UsuarioActualService.UsuarioActual?.Nombre</strong>!
+        </p>
 
-        <RadzenText TextStyle="TextStyle.H5" class="rz-mb-4">Estado de los cajones:</RadzenText>
+        @if (estadoCochera == null)
+        {
+            <RadzenProgressBarCircular ShowValue="true" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Medium" />
+        }
+        else
+        {
+            <!-- Resumen del estado -->
+            <div class="@($"estado-card {(estadoCochera.CocheraLlena ? "cochera-llena" : "cochera-disponible")}")">
+                <div class="estado-icon">
+                    @if (estadoCochera.CocheraLlena)
+                    {
+                        <span>🚫</span>
+                    }
+                    else
+                    {
+                        <span>✅</span>
+                    }
+                </div>
+                <div class="estado-texto">
+                    @if (estadoCochera.CocheraLlena)
+                    {
+                        <span class="estado-titulo peligro">COCHERA LLENA</span>
+                    }
+                    else
+                    {
+                        <span class="estado-titulo exito">HAY ESPACIO</span>
+                    }
+                    <span class="estado-subtitulo">@estadoCochera.CajonesLibres de 2 disponibles</span>
+                </div>
+            </div>
 
-        <RadzenRow Gap="2rem" JustifyContent="JustifyContent.Center">
-            @foreach (var cajon in cajones)
-            {
-                <RadzenColumn Size="12" SizeMD="5">
-                    <RadzenCard class="@GetCajonClass(cajon)" Style="text-align: center; padding: 2rem;">
-                        <div style="font-size: 5rem; margin-bottom: 1rem;">
+            <!-- Cajones visuales -->
+            <div class="cajones-grid-disponibilidad">
+                @foreach (var cajon in cajones)
+                {
+                    <div class="@GetCajonCardClass(cajon)">
+                        <div class="cajon-emoji">
                             @if (cajon.Estado == EstadoCajon.Ocupado)
                             {
                                 <span>🚗</span>
@@ -225,21 +247,40 @@ else
                                 <span>🅿️</span>
                             }
                         </div>
-                        <RadzenText TextStyle="TextStyle.H4">Cajón @cajon.Numero</RadzenText>
-                        <RadzenText TextStyle="TextStyle.Body1" class="rz-mt-2">
+                        <div class="cajon-numero">Cajón @cajon.Numero</div>
+                        <div class="cajon-estado">
                             @if (cajon.Estado == EstadoCajon.Libre)
                             {
-                                <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="DISPONIBLE" />
+                                <span class="badge-libre">LIBRE</span>
                             }
                             else
                             {
-                                <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="OCUPADO" />
+                                <span class="badge-ocupado">OCUPADO</span>
                             }
-                        </RadzenText>
-                    </RadzenCard>
-                </RadzenColumn>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <!-- Información de tarifa -->
+            @if (tarifaActual != null)
+            {
+                <RadzenCard class="rz-shadow-3 rz-mt-4">
+                    <RadzenText TextStyle="TextStyle.H6" class="rz-mb-2">
+                        <RadzenIcon Icon="attach_money" /> Información de Tarifa
+                    </RadzenText>
+                    <RadzenText>Tarifa actual: <strong>S/ @tarifaActual.PrecioPorMinuto.ToString("N2") por minuto</strong></RadzenText>
+                    <RadzenText TextStyle="TextStyle.Caption" class="rz-mt-2">
+                        * La fracción de minuto se cobra como minuto completo.
+                    </RadzenText>
+                </RadzenCard>
             }
-        </RadzenRow>
+
+            <!-- Mensaje informativo -->
+            <RadzenAlert AlertStyle="AlertStyle.Info" class="rz-mt-4">
+                <RadzenIcon Icon="info" /> El administrador registrará tu entrada cuando llegues a la cochera.
+            </RadzenAlert>
+        }
     }
 }
 
@@ -253,6 +294,54 @@ else
     }
     .page-icon { font-size: 1.5rem; color: var(--rz-primary); }
     .page-title { font-size: 1.25rem; font-weight: 600; }
+    .welcome-text {
+        font-size: 0.875rem;
+        color: #666;
+        margin-bottom: 1rem;
+    }
+    
+    /* Estados de cochera */
+    .estado-card {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem;
+        border-radius: 12px;
+        margin-bottom: 1rem;
+    }
+    .cochera-disponible {
+        background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+        border: 2px solid #4caf50;
+    }
+    .cochera-llena {
+        background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+        border: 2px solid #f44336;
+    }
+    .estado-icon {
+        font-size: 2.5rem;
+    }
+    .estado-texto {
+        display: flex;
+        flex-direction: column;
+    }
+    .estado-titulo {
+        font-size: 1.1rem;
+        font-weight: 700;
+    }
+    .estado-titulo.exito { color: #2e7d32; }
+    .estado-titulo.peligro { color: #c62828; }
+    .estado-subtitulo {
+        font-size: 0.8rem;
+        color: #666;
+    }
+    
+    /* Grid de cajones para disponibilidad */
+    .cajones-grid-disponibilidad {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+    }
     
     .sesion-activa {
         background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
@@ -380,6 +469,7 @@ else
     private SesionEstacionamientoDto? sesionPendientePago;
     private SesionEstacionamientoDto? sesionFinalizada;
     private TarifaDto? tarifaActual;
+    private EstadoCocheraDto? estadoCochera;
     private bool procesandoPago;
     private bool mostrarMensajeDespedida;
     private HubConnection? hubConnection;
@@ -402,9 +492,9 @@ else
     {
         cajones = (await CajonService.GetAllAsync()).ToList();
         tarifaActual = await TarifaService.GetTarifaActivaAsync();
+        estadoCochera = await EstadoCocheraService.GetEstadoActualAsync();
         
         // Sincronizar cajones con el estado real de los sensores
-        var estadoCochera = await EstadoCocheraService.GetEstadoActualAsync();
         if (estadoCochera != null && cajones.Count >= 2)
         {
             var cajon1 = cajones.FirstOrDefault(c => c.Numero == 1);
@@ -484,7 +574,27 @@ else
         // Actualizar cajones en tiempo real
         hubConnection.On<EstadoCocheraDto>("ActualizarCajones", async (estado) =>
         {
-            await LoadData();
+            estadoCochera = estado;
+            if (cajones.Count >= 2)
+            {
+                var cajon1 = cajones.FirstOrDefault(c => c.Numero == 1);
+                var cajon2 = cajones.FirstOrDefault(c => c.Numero == 2);
+                if (cajon1 != null) cajon1.Estado = estado.Cajon1Ocupado ? EstadoCajon.Ocupado : EstadoCajon.Libre;
+                if (cajon2 != null) cajon2.Estado = estado.Cajon2Ocupado ? EstadoCajon.Ocupado : EstadoCajon.Libre;
+            }
+            await InvokeAsync(StateHasChanged);
+        });
+
+        hubConnection.On<EstadoCocheraDto>("RecibirEstado", async (estado) =>
+        {
+            estadoCochera = estado;
+            if (cajones.Count >= 2)
+            {
+                var cajon1 = cajones.FirstOrDefault(c => c.Numero == 1);
+                var cajon2 = cajones.FirstOrDefault(c => c.Numero == 2);
+                if (cajon1 != null) cajon1.Estado = estado.Cajon1Ocupado ? EstadoCajon.Ocupado : EstadoCajon.Libre;
+                if (cajon2 != null) cajon2.Estado = estado.Cajon2Ocupado ? EstadoCajon.Ocupado : EstadoCajon.Libre;
+            }
             await InvokeAsync(StateHasChanged);
         });
 
@@ -513,6 +623,13 @@ else
         return cajon.Estado == EstadoCajon.Libre 
             ? baseClass + "cajon-libre" 
             : baseClass + "cajon-ocupado";
+    }
+
+    private string GetCajonCardClass(CajonDto cajon)
+    {
+        return cajon.Estado == EstadoCajon.Libre 
+            ? "cajon-card cajon-libre" 
+            : "cajon-card cajon-ocupado";
     }
 
     private async Task ConfirmarPago(MetodoPago metodoPago)
