@@ -3,15 +3,18 @@
 @using Cochera.Application.Interfaces
 @using Cochera.Web.Services
 @using Cochera.Domain.Enums
+@using Microsoft.AspNetCore.SignalR.Client
 @using Radzen
 @using Radzen.Blazor
 @inject ICajonService CajonService
 @inject ISesionService SesionService
 @inject ITarifaService TarifaService
+@inject ISesionNotificationService SesionNotificationService
 @inject UsuarioActualService UsuarioActualService
 @inject NavigationManager Navigation
 @inject NotificationService NotificationService
 @inject DialogService DialogService
+@implements IAsyncDisposable
 @rendermode InteractiveServer
 
 <PageTitle>Mi Estacionamiento - Cochera</PageTitle>
@@ -26,9 +29,83 @@ else
         <RadzenIcon Icon="directions_car" /> Mi Estacionamiento
     </RadzenText>
 
-    @if (sesionActiva != null)
+    @if (sesionPendientePago != null)
     {
-        <!-- Sesión activa -->
+        <!-- ESTADO: Pendiente de Pago -->
+        <RadzenCard class="rz-shadow-4 sesion-pago-pendiente rz-mb-4">
+            <div style="text-align: center;">
+                <RadzenIcon Icon="payment" Style="font-size: 4rem; color: var(--rz-warning);" />
+                <RadzenText TextStyle="TextStyle.H4" class="rz-mt-2">
+                    ¡Es hora de pagar!
+                </RadzenText>
+                <RadzenText TextStyle="TextStyle.Body1" class="rz-mb-4">
+                    El administrador ha solicitado el cierre de tu sesión.
+                </RadzenText>
+            </div>
+
+            <RadzenRow Gap="2rem" JustifyContent="JustifyContent.Center">
+                <RadzenColumn Size="12" SizeMD="8">
+                    <RadzenCard class="info-resumen">
+                        <RadzenStack Gap="1rem">
+                            <RadzenRow>
+                                <RadzenColumn Size="6"><strong>Cajón:</strong></RadzenColumn>
+                                <RadzenColumn Size="6" Style="text-align: right;">@sesionPendientePago.CajonNumero</RadzenColumn>
+                            </RadzenRow>
+                            <RadzenRow>
+                                <RadzenColumn Size="6"><strong>Hora entrada:</strong></RadzenColumn>
+                                <RadzenColumn Size="6" Style="text-align: right;">@sesionPendientePago.HoraEntrada.ToString("HH:mm:ss")</RadzenColumn>
+                            </RadzenRow>
+                            <RadzenRow>
+                                <RadzenColumn Size="6"><strong>Hora salida:</strong></RadzenColumn>
+                                <RadzenColumn Size="6" Style="text-align: right;">@(sesionPendientePago.HoraSalida?.ToString("HH:mm:ss") ?? "-")</RadzenColumn>
+                            </RadzenRow>
+                            <RadzenRow>
+                                <RadzenColumn Size="6"><strong>Tiempo total:</strong></RadzenColumn>
+                                <RadzenColumn Size="6" Style="text-align: right;">@sesionPendientePago.TiempoFormateado</RadzenColumn>
+                            </RadzenRow>
+                            <RadzenRow>
+                                <RadzenColumn Size="6"><strong>Tarifa por minuto:</strong></RadzenColumn>
+                                <RadzenColumn Size="6" Style="text-align: right;">S/ @sesionPendientePago.TarifaPorMinuto.ToString("N2")</RadzenColumn>
+                            </RadzenRow>
+                            <hr />
+                            <RadzenRow>
+                                <RadzenColumn Size="6"><RadzenText TextStyle="TextStyle.H5">TOTAL A PAGAR:</RadzenText></RadzenColumn>
+                                <RadzenColumn Size="6" Style="text-align: right;">
+                                    <RadzenText TextStyle="TextStyle.H4" Style="color: var(--rz-success);">
+                                        S/ @sesionPendientePago.MontoTotal.ToString("N2")
+                                    </RadzenText>
+                                </RadzenColumn>
+                            </RadzenRow>
+                        </RadzenStack>
+                    </RadzenCard>
+                </RadzenColumn>
+            </RadzenRow>
+
+            <div style="text-align: center; margin-top: 2rem;">
+                @if (sesionPendientePago.TienePago)
+                {
+                    <RadzenAlert AlertStyle="AlertStyle.Success" class="rz-mb-4">
+                        <RadzenIcon Icon="check_circle" /> ¡Pago confirmado! Esperando que el administrador cierre tu sesión...
+                    </RadzenAlert>
+                }
+                else
+                {
+                    <RadzenText TextStyle="TextStyle.Body1" class="rz-mb-4">Selecciona tu método de pago:</RadzenText>
+                    <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" JustifyContent="JustifyContent.Center">
+                        <RadzenButton Text="Pagar con Efectivo" Icon="payments" Size="ButtonSize.Large"
+                            ButtonStyle="ButtonStyle.Success" Click="@(() => ConfirmarPago(MetodoPago.Efectivo))" 
+                            IsBusy="@procesandoPago" />
+                        <RadzenButton Text="Pagar con Tarjeta" Icon="credit_card" Size="ButtonSize.Large"
+                            ButtonStyle="ButtonStyle.Primary" Click="@(() => ConfirmarPago(MetodoPago.Tarjeta))" 
+                            IsBusy="@procesandoPago" />
+                    </RadzenStack>
+                }
+            </div>
+        </RadzenCard>
+    }
+    else if (sesionActiva != null)
+    {
+        <!-- ESTADO: Sesión activa -->
         <RadzenCard class="rz-shadow-4 sesion-activa rz-mb-4">
             <RadzenText TextStyle="TextStyle.H4" class="rz-mb-4">
                 <RadzenIcon Icon="local_parking" /> Tienes una sesión activa
@@ -52,7 +129,7 @@ else
                             <RadzenIcon Icon="timer" />
                             <div>
                                 <RadzenText TextStyle="TextStyle.Caption">Tiempo estacionado</RadzenText>
-                                <RadzenText TextStyle="TextStyle.H5">@sesionActiva.MinutosEstacionado minutos</RadzenText>
+                                <RadzenText TextStyle="TextStyle.H5">@sesionActiva.TiempoFormateado</RadzenText>
                             </div>
                         </RadzenCard>
                         <RadzenCard class="info-card">
@@ -65,7 +142,7 @@ else
                         <RadzenCard class="info-card monto-total">
                             <RadzenIcon Icon="payments" />
                             <div>
-                                <RadzenText TextStyle="TextStyle.Caption">Monto a pagar</RadzenText>
+                                <RadzenText TextStyle="TextStyle.Caption">Monto acumulado</RadzenText>
                                 <RadzenText TextStyle="TextStyle.H3">S/ @sesionActiva.MontoTotal.ToString("N2")</RadzenText>
                             </div>
                         </RadzenCard>
@@ -73,17 +150,47 @@ else
                 </RadzenColumn>
             </RadzenRow>
             
-            <div style="text-align: center; margin-top: 2rem;">
-                <RadzenButton Text="Finalizar y Pagar" Icon="payment" Size="ButtonSize.Large"
-                    ButtonStyle="ButtonStyle.Success" Click="@MostrarDialogoPago" />
+            <RadzenAlert AlertStyle="AlertStyle.Info" class="rz-mt-4">
+                <RadzenIcon Icon="info" /> Cuando desees salir, acércate a la salida. El administrador te notificará para proceder al pago.
+            </RadzenAlert>
+        </RadzenCard>
+    }
+    else if (sesionFinalizada != null && mostrarMensajeDespedida)
+    {
+        <!-- ESTADO: Sesión finalizada - Mensaje de despedida -->
+        <RadzenCard class="rz-shadow-4 sesion-finalizada rz-mb-4">
+            <div style="text-align: center;">
+                <div style="font-size: 6rem; margin-bottom: 1rem;">👋</div>
+                <RadzenText TextStyle="TextStyle.H3" class="rz-mb-2">¡Gracias por visitarnos!</RadzenText>
+                <RadzenText TextStyle="TextStyle.Body1" class="rz-mb-4">Tu sesión ha sido cerrada exitosamente.</RadzenText>
+                
+                <RadzenCard class="info-resumen" Style="max-width: 400px; margin: 0 auto;">
+                    <RadzenStack Gap="0.5rem">
+                        <RadzenRow>
+                            <RadzenColumn Size="6">Cajón:</RadzenColumn>
+                            <RadzenColumn Size="6" Style="text-align: right;">@sesionFinalizada.CajonNumero</RadzenColumn>
+                        </RadzenRow>
+                        <RadzenRow>
+                            <RadzenColumn Size="6">Duración:</RadzenColumn>
+                            <RadzenColumn Size="6" Style="text-align: right;">@sesionFinalizada.TiempoFormateado</RadzenColumn>
+                        </RadzenRow>
+                        <RadzenRow>
+                            <RadzenColumn Size="6"><strong>Total pagado:</strong></RadzenColumn>
+                            <RadzenColumn Size="6" Style="text-align: right;"><strong>S/ @sesionFinalizada.MontoTotal.ToString("N2")</strong></RadzenColumn>
+                        </RadzenRow>
+                    </RadzenStack>
+                </RadzenCard>
+                
+                <RadzenButton Text="Ver mi historial" Icon="history" ButtonStyle="ButtonStyle.Primary" 
+                    Style="margin-top: 2rem;" Click="@(() => Navigation.NavigateTo("/usuario/historial"))" />
             </div>
         </RadzenCard>
     }
     else
     {
-        <!-- Sin sesión activa - puede iniciar una -->
+        <!-- ESTADO: Sin sesión activa -->
         <RadzenAlert AlertStyle="AlertStyle.Info" class="rz-mb-4">
-            No tienes ninguna sesión de estacionamiento activa. Selecciona un cajón disponible para comenzar.
+            No tienes ninguna sesión de estacionamiento activa. El administrador registrará tu entrada cuando llegues.
         </RadzenAlert>
 
         <RadzenCard class="rz-shadow-3 rz-mb-4">
@@ -93,17 +200,19 @@ else
             @if (tarifaActual != null)
             {
                 <RadzenText>Tarifa actual: <strong>S/ @tarifaActual.PrecioPorMinuto.ToString("N2") por minuto</strong></RadzenText>
+                <RadzenText TextStyle="TextStyle.Caption" class="rz-mt-2">
+                    * La fracción de minuto se cobra como minuto completo.
+                </RadzenText>
             }
         </RadzenCard>
 
-        <RadzenText TextStyle="TextStyle.H5" class="rz-mb-4">Selecciona un cajón disponible:</RadzenText>
+        <RadzenText TextStyle="TextStyle.H5" class="rz-mb-4">Estado de los cajones:</RadzenText>
 
         <RadzenRow Gap="2rem" JustifyContent="JustifyContent.Center">
             @foreach (var cajon in cajones)
             {
                 <RadzenColumn Size="12" SizeMD="5">
-                    <RadzenCard class="@GetCajonClass(cajon)" Style="text-align: center; padding: 2rem; cursor: pointer;" 
-                        @onclick="() => SeleccionarCajon(cajon)">
+                    <RadzenCard class="@GetCajonClass(cajon)" Style="text-align: center; padding: 2rem;">
                         <div style="font-size: 5rem; margin-bottom: 1rem;">
                             @if (cajon.Estado == EstadoCajon.Ocupado)
                             {
@@ -125,26 +234,10 @@ else
                                 <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="OCUPADO" />
                             }
                         </RadzenText>
-                        
-                        @if (cajon.Estado == EstadoCajon.Libre)
-                        {
-                            <RadzenButton Text="Seleccionar" Icon="check" ButtonStyle="ButtonStyle.Primary"
-                                Style="margin-top: 1rem;" />
-                        }
                     </RadzenCard>
                 </RadzenColumn>
             }
         </RadzenRow>
-
-        @if (cajonSeleccionado != null && cajonSeleccionado.Estado == EstadoCajon.Libre)
-        {
-            <RadzenCard class="rz-shadow-4 rz-mt-4" Style="background: var(--rz-info-lighter); text-align: center;">
-                <RadzenText TextStyle="TextStyle.H5">Has seleccionado el <strong>Cajón @cajonSeleccionado.Numero</strong></RadzenText>
-                <RadzenButton Text="Confirmar e Iniciar Estacionamiento" Icon="play_arrow" 
-                    Size="ButtonSize.Large" ButtonStyle="ButtonStyle.Success"
-                    Click="@IniciarSesion" IsBusy="@procesando" Style="margin-top: 1rem;" />
-            </RadzenCard>
-        }
     }
 }
 
@@ -152,6 +245,19 @@ else
     .sesion-activa {
         background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
         border: 2px solid #ff9800;
+    }
+    .sesion-pago-pendiente {
+        background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+        border: 2px solid #f44336;
+        animation: pulse-pago 2s infinite;
+    }
+    @@keyframes pulse-pago {
+        0%, 100% { border-color: #f44336; }
+        50% { border-color: #d32f2f; box-shadow: 0 0 20px rgba(244, 67, 54, 0.3); }
+    }
+    .sesion-finalizada {
+        background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+        border: 2px solid #4caf50;
     }
     .info-card {
         display: flex;
@@ -167,40 +273,35 @@ else
         background: var(--rz-success-lighter);
         border: 2px solid var(--rz-success);
     }
+    .info-resumen {
+        background: white;
+        border: 1px solid #ddd;
+    }
     .cajon-card {
         border-radius: 16px;
         transition: transform 0.2s, box-shadow 0.2s;
-    }
-    .cajon-card:hover {
-        transform: translateY(-4px);
     }
     .cajon-libre {
         background: linear-gradient(180deg, #e8f5e9 0%, #c8e6c9 100%);
         border: 3px solid #4caf50;
     }
-    .cajon-libre:hover {
-        box-shadow: 0 8px 24px rgba(76, 175, 80, 0.3);
-    }
     .cajon-ocupado {
         background: linear-gradient(180deg, #ffebee 0%, #ffcdd2 100%);
         border: 3px solid #f44336;
         opacity: 0.7;
-        cursor: not-allowed !important;
-    }
-    .cajon-mantenimiento {
-        background: linear-gradient(180deg, #eceff1 0%, #cfd8dc 100%);
-        border: 3px solid #607d8b;
-        opacity: 0.7;
-        cursor: not-allowed !important;
     }
 </style>
 
 @code {
     private List<CajonDto> cajones = new();
     private SesionEstacionamientoDto? sesionActiva;
+    private SesionEstacionamientoDto? sesionPendientePago;
+    private SesionEstacionamientoDto? sesionFinalizada;
     private TarifaDto? tarifaActual;
-    private CajonDto? cajonSeleccionado;
-    private bool procesando;
+    private bool procesandoPago;
+    private bool mostrarMensajeDespedida;
+    private HubConnection? hubConnection;
+    private System.Timers.Timer? actualizadorMonto;
 
     protected override async Task OnInitializedAsync()
     {
@@ -211,6 +312,8 @@ else
         }
         
         await LoadData();
+        await SetupSignalR();
+        SetupActualizadorMonto();
     }
 
     private async Task LoadData()
@@ -221,7 +324,87 @@ else
         if (UsuarioActualService.UsuarioId.HasValue)
         {
             sesionActiva = await SesionService.GetSesionActivaByUsuarioAsync(UsuarioActualService.UsuarioId.Value);
+            sesionPendientePago = await SesionService.GetSesionPendientePagoByUsuarioAsync(UsuarioActualService.UsuarioId.Value);
         }
+    }
+
+    private async Task SetupSignalR()
+    {
+        if (!UsuarioActualService.UsuarioId.HasValue) return;
+
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/cocherahub"))
+            .WithAutomaticReconnect()
+            .Build();
+
+        // Nueva sesión creada para este usuario
+        hubConnection.On<SesionEstacionamientoDto>("MiNuevaSesion", async (sesion) =>
+        {
+            sesionActiva = sesion;
+            sesionPendientePago = null;
+            mostrarMensajeDespedida = false;
+            await InvokeAsync(StateHasChanged);
+            NotificationService.Notify(NotificationSeverity.Success, "🚗 Sesión iniciada", 
+                $"Bienvenido! Te asignamos el Cajón {sesion.CajonNumero}");
+        });
+
+        // Admin solicita cierre de sesión
+        hubConnection.On<SesionEstacionamientoDto>("SolicitudCierreSesion", async (sesion) =>
+        {
+            sesionActiva = null;
+            sesionPendientePago = sesion;
+            await InvokeAsync(StateHasChanged);
+            NotificationService.Notify(NotificationSeverity.Warning, "💰 Hora de pagar", 
+                $"Por favor, procede al pago de S/ {sesion.MontoTotal:N2}");
+        });
+
+        // Sesión cerrada
+        hubConnection.On<SesionEstacionamientoDto>("SesionCerrada", async (sesion) =>
+        {
+            sesionActiva = null;
+            sesionPendientePago = null;
+            sesionFinalizada = sesion;
+            mostrarMensajeDespedida = true;
+            await InvokeAsync(StateHasChanged);
+            NotificationService.Notify(NotificationSeverity.Success, "✅ ¡Hasta pronto!", 
+                "Tu sesión ha sido cerrada. ¡Gracias por visitarnos!");
+            
+            // Ocultar mensaje de despedida después de 30 segundos
+            _ = Task.Delay(30000).ContinueWith(async _ =>
+            {
+                mostrarMensajeDespedida = false;
+                sesionFinalizada = null;
+                await InvokeAsync(StateHasChanged);
+            });
+        });
+
+        // Actualización de monto en tiempo real
+        hubConnection.On<SesionEstacionamientoDto>("ActualizarMontoSesion", async (sesion) =>
+        {
+            if (sesionActiva != null && sesionActiva.Id == sesion.Id)
+            {
+                sesionActiva = sesion;
+                await InvokeAsync(StateHasChanged);
+            }
+        });
+
+        await hubConnection.StartAsync();
+        await hubConnection.InvokeAsync("UnirseComoUsuario", UsuarioActualService.UsuarioId.Value);
+    }
+
+    private void SetupActualizadorMonto()
+    {
+        actualizadorMonto = new System.Timers.Timer(30000); // Cada 30 segundos
+        actualizadorMonto.Elapsed += async (sender, e) =>
+        {
+            if (sesionActiva != null && UsuarioActualService.UsuarioId.HasValue)
+            {
+                // Refrescar sesión activa para actualizar monto
+                sesionActiva = await SesionService.GetSesionActivaByUsuarioAsync(UsuarioActualService.UsuarioId.Value);
+                await InvokeAsync(StateHasChanged);
+            }
+        };
+        actualizadorMonto.Start();
     }
 
     private string GetCajonClass(CajonDto cajon)
@@ -232,81 +415,58 @@ else
             : baseClass + "cajon-ocupado";
     }
 
-    private void SeleccionarCajon(CajonDto cajon)
+    private async Task ConfirmarPago(MetodoPago metodoPago)
     {
-        if (cajon.Estado == EstadoCajon.Libre)
-        {
-            cajonSeleccionado = cajon;
-        }
-    }
+        if (sesionPendientePago == null || !UsuarioActualService.UsuarioId.HasValue) return;
 
-    private async Task IniciarSesion()
-    {
-        if (cajonSeleccionado == null || !UsuarioActualService.UsuarioId.HasValue) return;
-
-        procesando = true;
-        try
-        {
-            var request = new IniciarSesionRequest
-            {
-                UsuarioId = UsuarioActualService.UsuarioId.Value,
-                CajonId = cajonSeleccionado.Id
-            };
-            sesionActiva = await SesionService.IniciarSesionAsync(request);
-            
-            NotificationService.Notify(NotificationSeverity.Success, "¡Listo!", 
-                $"Has iniciado estacionamiento en Cajón {cajonSeleccionado.Numero}");
-            
-            cajonSeleccionado = null;
-            await LoadData();
-        }
-        catch (Exception ex)
-        {
-            NotificationService.Notify(NotificationSeverity.Error, "Error", ex.Message);
-        }
-        finally
-        {
-            procesando = false;
-        }
-    }
-
-    private async Task MostrarDialogoPago()
-    {
-        if (sesionActiva == null) return;
-
-        var result = await DialogService.Confirm(
-            $"Total a pagar: S/ {sesionActiva.MontoTotal:N2}\n\n¿Desea finalizar la sesión y proceder al pago?",
+        var confirmacion = await DialogService.Confirm(
+            $"¿Confirmar pago de S/ {sesionPendientePago.MontoTotal:N2} con {(metodoPago == MetodoPago.Efectivo ? "Efectivo" : "Tarjeta")}?",
             "Confirmar Pago",
-            new ConfirmOptions { OkButtonText = "Pagar", CancelButtonText = "Cancelar" });
+            new ConfirmOptions { OkButtonText = "Confirmar Pago", CancelButtonText = "Cancelar" });
 
-        if (result == true)
+        if (confirmacion == true)
         {
-            await ProcesarPago();
+            procesandoPago = true;
+            try
+            {
+                var confirmacionPago = new ConfirmacionPagoDto
+                {
+                    SesionId = sesionPendientePago.Id,
+                    UsuarioId = UsuarioActualService.UsuarioId.Value,
+                    MetodoPago = metodoPago
+                };
+
+                sesionPendientePago = await SesionService.ConfirmarPagoUsuarioAsync(confirmacionPago);
+                
+                // Notificar al admin via SignalR
+                await SesionNotificationService.NotificarPagoConfirmadoAsync(sesionPendientePago);
+                
+                NotificationService.Notify(NotificationSeverity.Success, "✅ Pago confirmado", 
+                    "Tu pago ha sido registrado. Esperando confirmación del administrador...");
+            }
+            catch (Exception ex)
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Error", ex.Message);
+            }
+            finally
+            {
+                procesandoPago = false;
+            }
         }
     }
 
-    private async Task ProcesarPago()
+    public async ValueTask DisposeAsync()
     {
-        if (sesionActiva == null) return;
-
-        try
+        actualizadorMonto?.Stop();
+        actualizadorMonto?.Dispose();
+        
+        if (hubConnection != null)
         {
-            var request = new FinalizarSesionRequest
+            if (UsuarioActualService.UsuarioId.HasValue)
             {
-                SesionId = sesionActiva.Id,
-                MetodoPago = MetodoPago.Efectivo
-            };
-            await SesionService.FinalizarSesionAsync(request);
-            
-            NotificationService.Notify(NotificationSeverity.Success, "¡Pago exitoso!", 
-                $"Has pagado S/ {sesionActiva.MontoTotal:N2}. ¡Gracias por usar nuestro servicio!");
-            
-            sesionActiva = null;
-            await LoadData();
-        }
-        catch (Exception ex)
-        {
-            NotificationService.Notify(NotificationSeverity.Error, "Error", ex.Message);
+                await hubConnection.InvokeAsync("SalirDeGrupoUsuario", UsuarioActualService.UsuarioId.Value);
+            }
+            await hubConnection.DisposeAsync();
         }
     }
 }

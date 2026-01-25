@@ -1,4 +1,5 @@
 using Cochera.Application.Interfaces;
+using Cochera.Domain.Enums;
 using Cochera.Infrastructure.Mqtt;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -50,6 +51,20 @@ public class MqttWorker : BackgroundService
                 if (estado != null)
                 {
                     await _notificationService.NotificarCambioEstadoAsync(estado);
+                }
+
+                // === LÓGICA DE EVENTOS PARA GESTIÓN DE SESIONES ===
+                // Si es movimiento de entrada, notificar a admins para que gestionen la entrada
+                if (eventoDto.TipoEvento == TipoEvento.MovimientoEntrada)
+                {
+                    _logger.LogInformation("🚗 Vehículo detectado en ENTRADA - Notificando a administradores");
+                    await _notificationService.NotificarVehiculoDetectadoAsync(eventoDto);
+                }
+                // Si es vehículo saliendo, también notificar (podría ser para confirmar salida)
+                else if (eventoDto.TipoEvento == TipoEvento.VehiculoSalio)
+                {
+                    _logger.LogInformation("🚗 Vehículo detectado en SALIDA - Notificando a administradores");
+                    await _notificationService.NotificarVehiculoDetectadoAsync(eventoDto);
                 }
             }
             catch (Exception ex)

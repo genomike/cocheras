@@ -2,6 +2,7 @@
 @using Cochera.Application.DTOs
 @using Cochera.Application.Interfaces
 @using Cochera.Web.Services
+@using Cochera.Domain.Enums
 @using Microsoft.AspNetCore.SignalR.Client
 @using Radzen
 @using Radzen.Blazor
@@ -22,9 +23,16 @@
 }
 else
 {
-    <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="rz-mb-4">
-        <RadzenIcon Icon="dashboard" /> Dashboard Administrativo
-    </RadzenText>
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" class="rz-mb-4">
+        <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="rz-mb-0">
+            <RadzenIcon Icon="dashboard" /> Dashboard Administrativo
+        </RadzenText>
+        <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
+            <RadzenButton Icon="refresh" Text="Actualizar" ButtonStyle="ButtonStyle.Light" Click="@LoadDashboard" />
+            <RadzenButton Icon="directions_car" Text="Gestión Entrada/Salida" ButtonStyle="ButtonStyle.Primary" 
+                Click="@(() => Navigation.NavigateTo("/admin/gestion-entrada"))" />
+        </RadzenStack>
+    </RadzenStack>
 
     @if (dashboard == null)
     {
@@ -166,7 +174,7 @@ else
                                 <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="CajonNumero" Title="Cajón" Width="80px" />
                                 <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="HoraEntrada" Title="Entrada" FormatString="{0:HH:mm}" Width="80px" />
                                 <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="MinutosEstacionado" Title="Min" Width="60px" />
-                                <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="MontoTotal" Title="Monto" FormatString="{0:C}" Width="100px" />
+                                <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="MontoTotal" Title="Monto" FormatString="S/ {0:N2}" Width="100px" />
                             </Columns>
                         </RadzenDataGrid>
                     }
@@ -277,6 +285,15 @@ else
                 dashboard.TotalEventosHoy++;
                 await InvokeAsync(StateHasChanged);
             }
+        });
+
+        // Escuchar eventos de vehículos y navegar automáticamente a gestión de sesiones
+        hubConnection.On<EventoSensorDto>("VehiculoDetectadoEnEntrada", async (evento) =>
+        {
+            NotificationService.Notify(NotificationSeverity.Warning, 
+                evento.TipoEvento == TipoEvento.MovimientoEntrada ? "🚗 Vehículo detectado en ENTRADA" : "🚗 Vehículo detectado en SALIDA", 
+                "Redirigiendo a gestión de sesiones...");
+            await InvokeAsync(() => Navigation.NavigateTo("/admin/gestion-entrada"));
         });
 
         await hubConnection.StartAsync();

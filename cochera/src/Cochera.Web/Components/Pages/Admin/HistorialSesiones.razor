@@ -18,9 +18,12 @@
 }
 else
 {
-    <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="rz-mb-4">
-        <RadzenIcon Icon="history" /> Historial de Sesiones
-    </RadzenText>
+    <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" class="rz-mb-4">
+        <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="rz-mb-0">
+            <RadzenIcon Icon="history" /> Historial de Sesiones
+        </RadzenText>
+        <RadzenButton Icon="refresh" Text="Actualizar" ButtonStyle="ButtonStyle.Light" Click="@LoadSesiones" />
+    </RadzenStack>
 
     <RadzenCard class="rz-shadow-3 rz-mb-4">
         <RadzenRow Gap="1rem" AlignItems="AlignItems.End">
@@ -51,8 +54,8 @@ else
                 <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="HoraEntrada" Title="Entrada" FormatString="{0:dd/MM HH:mm}" Width="120px" />
                 <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="HoraSalida" Title="Salida" FormatString="{0:dd/MM HH:mm}" Width="120px" />
                 <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="MinutosEstacionado" Title="Min" Width="60px" TextAlign="TextAlign.Center" />
-                <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="TarifaPorMinuto" Title="Tarifa" FormatString="{0:C}" Width="80px" />
-                <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="MontoTotal" Title="Total" FormatString="{0:C}" Width="100px" />
+                <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="TarifaPorMinuto" Title="Tarifa" FormatString="S/ {0:N2}" Width="80px" />
+                <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="MontoTotal" Title="Total" FormatString="S/ {0:N2}" Width="100px" />
                 <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="EstadoTexto" Title="Estado" Width="100px">
                     <Template Context="sesion">
                         @switch (sesion.Estado)

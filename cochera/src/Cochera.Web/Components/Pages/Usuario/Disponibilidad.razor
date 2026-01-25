@@ -164,7 +164,14 @@ else
         hubConnection.On<EstadoCocheraDto>("RecibirEstado", async (estado) =>
         {
             estadoCochera = estado;
-            cajones = (await CajonService.GetAllAsync()).ToList();
+            // Actualizar cajones directamente desde el estado recibido (sin consultar BD)
+            if (cajones.Count >= 2)
+            {
+                var cajon1 = cajones.FirstOrDefault(c => c.Numero == 1);
+                var cajon2 = cajones.FirstOrDefault(c => c.Numero == 2);
+                if (cajon1 != null) cajon1.Estado = estado.Cajon1Ocupado ? EstadoCajon.Ocupado : EstadoCajon.Libre;
+                if (cajon2 != null) cajon2.Estado = estado.Cajon2Ocupado ? EstadoCajon.Ocupado : EstadoCajon.Libre;
+            }
             await InvokeAsync(StateHasChanged);
         });
 

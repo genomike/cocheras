@@ -7,9 +7,11 @@
 @using Radzen
 @using Radzen.Blazor
 @inject ISesionService SesionService
+@inject ISesionNotificationService SesionNotificationService
 @inject UsuarioActualService UsuarioActualService
 @inject NavigationManager Navigation
 @inject NotificationService NotificationService
+@inject DialogService DialogService
 @implements IAsyncDisposable
 @rendermode InteractiveServer
 
@@ -22,12 +24,22 @@
 else
 {
     <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="rz-mb-4">
-        <RadzenIcon Icon="local_parking" /> Sesiones Activas
+        <RadzenIcon Icon="local_parking" /> Sesiones de Estacionamiento
     </RadzenText>
 
-    <RadzenButton Icon="refresh" Text="Actualizar" Click="@LoadSesiones" class="rz-mb-4" />
+    <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" class="rz-mb-4">
+        <RadzenButton Icon="refresh" Text="Actualizar" Click="@LoadSesiones" />
+        <RadzenButton Icon="directions_car" Text="Gestión de Entrada/Salida" 
+            ButtonStyle="ButtonStyle.Primary" Click="@(() => Navigation.NavigateTo("/admin/gestion-entrada"))" />
+    </RadzenStack>
 
-    <RadzenCard class="rz-shadow-3">
+    <!-- Sesiones Activas -->
+    <RadzenCard class="rz-shadow-3 rz-mb-4">
+        <RadzenText TextStyle="TextStyle.H5" class="rz-mb-4">
+            <RadzenIcon Icon="play_circle" /> Sesiones Activas
+            <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="@sesionesActivas.Count.ToString()" />
+        </RadzenText>
+        
         @if (sesionesActivas.Any())
         {
             <RadzenDataGrid Data="@sesionesActivas" TItem="SesionEstacionamientoDto" AllowPaging="true" PageSize="10">
@@ -35,13 +47,27 @@ else
                     <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="Id" Title="ID" Width="60px" />
                     <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="UsuarioNombre" Title="Usuario" />
                     <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="CajonNumero" Title="Cajón" Width="80px" TextAlign="TextAlign.Center" />
-                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="HoraEntrada" Title="Hora Entrada" FormatString="{0:dd/MM/yyyy HH:mm:ss}" />
-                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="MinutosEstacionado" Title="Minutos" Width="80px" TextAlign="TextAlign.Center" />
-                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="TarifaPorMinuto" Title="Tarifa/Min" FormatString="{0:C}" Width="100px" />
-                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="MontoTotal" Title="Monto Acumulado" FormatString="{0:C}" Width="120px" />
+                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="HoraEntrada" Title="Hora Entrada" FormatString="{0:dd/MM HH:mm:ss}" Width="140px" />
+                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Title="Tiempo" Width="100px">
+                        <Template Context="sesion">
+                            @sesion.TiempoFormateado
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="TarifaPorMinuto" Title="Tarifa/Min" FormatString="S/ {0:N2}" Width="100px" />
+                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Title="Monto" Width="120px">
+                        <Template Context="sesion">
+                            <strong style="color: var(--rz-success);">S/ @sesion.MontoTotal.ToString("N2")</strong>
+                        </Template>
+                    </RadzenDataGridColumn>
                     <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Title="Estado" Width="100px">
                         <Template Context="sesion">
                             <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="En curso" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Title="Acciones" Width="150px">
+                        <Template Context="sesion">
+                            <RadzenButton Icon="exit_to_app" Text="Salida" Size="ButtonSize.Small"
+                                ButtonStyle="ButtonStyle.Warning" Click="@(() => SolicitarCierre(sesion))" />
                         </Template>
                     </RadzenDataGridColumn>
                 </Columns>
@@ -54,10 +80,73 @@ else
             </RadzenAlert>
         }
     </RadzenCard>
+
+    <!-- Sesiones Pendientes de Pago -->
+    <RadzenCard class="rz-shadow-3 rz-mb-4">
+        <RadzenText TextStyle="TextStyle.H5" class="rz-mb-4">
+            <RadzenIcon Icon="payment" /> Pendientes de Pago
+            <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="@sesionesPendientes.Count.ToString()" />
+        </RadzenText>
+        
+        @if (sesionesPendientes.Any())
+        {
+            <RadzenDataGrid Data="@sesionesPendientes" TItem="SesionEstacionamientoDto" AllowPaging="true" PageSize="10">
+                <Columns>
+                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="Id" Title="ID" Width="60px" />
+                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="UsuarioNombre" Title="Usuario" />
+                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="CajonNumero" Title="Cajón" Width="80px" TextAlign="TextAlign.Center" />
+                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Title="Tiempo" Width="100px">
+                        <Template Context="sesion">
+                            @sesion.TiempoFormateado
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Title="Monto" Width="120px">
+                        <Template Context="sesion">
+                            <strong style="color: var(--rz-success);">S/ @sesion.MontoTotal.ToString("N2")</strong>
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Title="Estado Pago" Width="120px">
+                        <Template Context="sesion">
+                            @if (sesion.TienePago)
+                            {
+                                <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="PAGADO ✓" />
+                            }
+                            else
+                            {
+                                <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="Esperando..." />
+                            }
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Title="Acciones" Width="150px">
+                        <Template Context="sesion">
+                            @if (sesion.TienePago)
+                            {
+                                <RadzenButton Icon="check" Text="Cerrar" Size="ButtonSize.Small"
+                                    ButtonStyle="ButtonStyle.Success" Click="@(() => CerrarSesion(sesion))" />
+                            }
+                            else
+                            {
+                                <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-disabled-color);">
+                                    Esperando pago del usuario
+                                </RadzenText>
+                            }
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        }
+        else
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Info">
+                No hay sesiones pendientes de pago.
+            </RadzenAlert>
+        }
+    </RadzenCard>
 }
 
 @code {
     private List<SesionEstacionamientoDto> sesionesActivas = new();
+    private List<SesionEstacionamientoDto> sesionesPendientes = new();
     private HubConnection? hubConnection;
 
     protected override async Task OnInitializedAsync()
@@ -75,6 +164,7 @@ else
     private async Task LoadSesiones()
     {
         sesionesActivas = (await SesionService.GetSesionesActivasAsync()).ToList();
+        sesionesPendientes = (await SesionService.GetSesionesPendientesPagoAsync()).ToList();
     }
 
     private async Task SetupSignalR()
@@ -84,25 +174,94 @@ else
             .WithAutomaticReconnect()
             .Build();
 
-        hubConnection.On<SesionEstacionamientoDto>("SesionIniciada", async (sesion) =>
+        // Nueva sesión iniciada
+        hubConnection.On<SesionEstacionamientoDto>("NuevaSesionCreada", async (sesion) =>
         {
             sesionesActivas.Add(sesion);
             await InvokeAsync(StateHasChanged);
-            NotificationService.Notify(NotificationSeverity.Info, "Nueva sesión", $"Usuario {sesion.UsuarioNombre} en Cajón {sesion.CajonNumero}");
+            NotificationService.Notify(NotificationSeverity.Info, "Nueva sesión", 
+                $"Usuario {sesion.UsuarioNombre} en Cajón {sesion.CajonNumero}");
         });
 
-        hubConnection.On<SesionEstacionamientoDto>("SesionFinalizada", async (sesion) =>
+        // Usuario confirmó pago
+        hubConnection.On<SesionEstacionamientoDto>("UsuarioPagoConfirmado", async (sesion) =>
         {
-            var existing = sesionesActivas.FirstOrDefault(s => s.Id == sesion.Id);
-            if (existing != null)
+            var pendiente = sesionesPendientes.FirstOrDefault(s => s.Id == sesion.Id);
+            if (pendiente != null)
             {
-                sesionesActivas.Remove(existing);
-                await InvokeAsync(StateHasChanged);
-                NotificationService.Notify(NotificationSeverity.Success, "Sesión finalizada", $"Usuario {sesion.UsuarioNombre} - S/ {sesion.MontoTotal:N2}");
+                var index = sesionesPendientes.IndexOf(pendiente);
+                sesionesPendientes[index] = sesion;
             }
+            await InvokeAsync(StateHasChanged);
+            NotificationService.Notify(NotificationSeverity.Success, "💰 Pago confirmado", 
+                $"{sesion.UsuarioNombre} ha pagado S/ {sesion.MontoTotal:N2}");
+        });
+
+        // Sesión cerrada
+        hubConnection.On<SesionEstacionamientoDto>("SesionCerradaAdmin", async (sesion) =>
+        {
+            sesionesActivas.RemoveAll(s => s.Id == sesion.Id);
+            sesionesPendientes.RemoveAll(s => s.Id == sesion.Id);
+            await InvokeAsync(StateHasChanged);
+            NotificationService.Notify(NotificationSeverity.Success, "Sesión cerrada", 
+                $"Sesión de {sesion.UsuarioNombre} cerrada - Cajón {sesion.CajonNumero} liberado");
         });
 
         await hubConnection.StartAsync();
+        await hubConnection.InvokeAsync("UnirseComoAdmin");
+    }
+
+    private async Task SolicitarCierre(SesionEstacionamientoDto sesion)
+    {
+        var confirmacion = await DialogService.Confirm(
+            $"¿Solicitar cierre de sesión para {sesion.UsuarioNombre}?\n\nMonto actual: S/ {sesion.MontoTotal:N2}\n\nEl usuario recibirá una notificación para proceder al pago.",
+            "Confirmar solicitud de salida",
+            new ConfirmOptions { OkButtonText = "Solicitar", CancelButtonText = "Cancelar" });
+
+        if (confirmacion == true)
+        {
+            try
+            {
+                var sesionActualizada = await SesionService.SolicitarCierreSesionAsync(sesion.Id);
+                
+                // Mover de activas a pendientes
+                sesionesActivas.RemoveAll(s => s.Id == sesion.Id);
+                sesionesPendientes.Add(sesionActualizada);
+                
+                // Notificar via SignalR al usuario
+                await SesionNotificationService.NotificarSolicitudCierreSesionAsync(sesionActualizada);
+                
+                NotificationService.Notify(NotificationSeverity.Info, "📤 Solicitud enviada", 
+                    $"Se notificó a {sesion.UsuarioNombre} para que proceda al pago.");
+                
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                NotificationService.Notify(NotificationSeverity.Error, "Error", ex.Message);
+            }
+        }
+    }
+
+    private async Task CerrarSesion(SesionEstacionamientoDto sesion)
+    {
+        try
+        {
+            var sesionCerrada = await SesionService.CerrarSesionAsync(sesion.Id);
+            sesionesPendientes.RemoveAll(s => s.Id == sesion.Id);
+            
+            // Notificar via SignalR
+            await SesionNotificationService.NotificarSesionCerradaAsync(sesionCerrada);
+            
+            NotificationService.Notify(NotificationSeverity.Success, "✅ Sesión cerrada", 
+                $"Sesión de {sesion.UsuarioNombre} cerrada exitosamente. Cajón {sesion.CajonNumero} liberado.");
+            
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Notify(NotificationSeverity.Error, "Error", ex.Message);
+        }
     }
 
     public async ValueTask DisposeAsync()

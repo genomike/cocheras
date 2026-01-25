@@ -1,0 +1,61 @@
+@using Cochera.Application.DTOs
+@using Radzen
+@using Radzen.Blazor
+@inject DialogService DialogService
+
+<RadzenStack Gap="1.5rem">
+    <RadzenFormField Text="Seleccionar Usuario" Variant="Variant.Outlined" Style="width: 100%;">
+        <RadzenDropDown @bind-Value="usuarioSeleccionado" Data="@Usuarios" TextProperty="Nombre" 
+            ValueProperty="Id" Placeholder="Seleccione un usuario..." Style="width: 100%;" />
+    </RadzenFormField>
+
+    <RadzenFormField Text="Seleccionar Cajón" Variant="Variant.Outlined" Style="width: 100%;">
+        <RadzenDropDown @bind-Value="cajonSeleccionado" Data="@Cajones" 
+            TextProperty="Numero" ValueProperty="Id" Placeholder="Seleccione un cajón..." Style="width: 100%;">
+            <Template Context="cajon">
+                Cajón @((cajon as CajonDto)?.Numero) - Disponible
+            </Template>
+        </RadzenDropDown>
+    </RadzenFormField>
+
+    @if (usuarioSeleccionado > 0 && cajonSeleccionado > 0)
+    {
+        <RadzenCard class="rz-background-color-info-lighter">
+            <RadzenText TextStyle="TextStyle.Body1">
+                <strong>Resumen:</strong><br/>
+                Usuario: @(Usuarios.FirstOrDefault(u => u.Id == usuarioSeleccionado)?.Nombre)<br/>
+                Cajón: @(Cajones.FirstOrDefault(c => c.Id == cajonSeleccionado)?.Numero)
+            </RadzenText>
+        </RadzenCard>
+    }
+
+    <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" JustifyContent="JustifyContent.End">
+        <RadzenButton Text="Cancelar" ButtonStyle="ButtonStyle.Light" Click="@Cancelar" />
+        <RadzenButton Text="Registrar Entrada" Icon="login" ButtonStyle="ButtonStyle.Success" 
+            Disabled="@(usuarioSeleccionado <= 0 || cajonSeleccionado <= 0)"
+            Click="@Confirmar" />
+    </RadzenStack>
+</RadzenStack>
+
+@code {
+    [Parameter] public List<UsuarioDto> Usuarios { get; set; } = new();
+    [Parameter] public List<CajonDto> Cajones { get; set; } = new();
+
+    private int usuarioSeleccionado;
+    private int cajonSeleccionado;
+
+    private void Cancelar()
+    {
+        DialogService.Close(null);
+    }
+
+    private void Confirmar()
+    {
+        var request = new IniciarSesionRequest
+        {
+            UsuarioId = usuarioSeleccionado,
+            CajonId = cajonSeleccionado
+        };
+        DialogService.Close(request);
+    }
+}

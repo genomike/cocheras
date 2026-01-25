@@ -1,0 +1,92 @@
+@using Cochera.Application.DTOs
+@using Radzen
+@using Radzen.Blazor
+@inject DialogService DialogService
+
+<RadzenStack Gap="1.5rem">
+    <RadzenText TextStyle="TextStyle.Body1">
+        Seleccione la sesión del usuario que está saliendo:
+    </RadzenText>
+
+    <RadzenDataList Data="@SesionesActivas" TItem="SesionEstacionamientoDto">
+        <Template Context="sesion">
+            <RadzenCard class="@GetSesionItemClass(sesion)"
+                @onclick="@(() => SeleccionarSesion(sesion))" Style="cursor: pointer;">
+                <RadzenRow AlignItems="AlignItems.Center">
+                    <RadzenColumn Size="8">
+                        <RadzenText TextStyle="TextStyle.Body1"><strong>@sesion.UsuarioNombre</strong></RadzenText>
+                        <RadzenText TextStyle="TextStyle.Caption">
+                            Cajón @sesion.CajonNumero | Entrada: @sesion.HoraEntrada.ToString("HH:mm")
+                        </RadzenText>
+                    </RadzenColumn>
+                    <RadzenColumn Size="4" Style="text-align: right;">
+                        <RadzenText TextStyle="TextStyle.H6" Style="color: var(--rz-success);">
+                            S/ @sesion.MontoTotal.ToString("N2")
+                        </RadzenText>
+                        <RadzenText TextStyle="TextStyle.Caption">@sesion.TiempoFormateado</RadzenText>
+                    </RadzenColumn>
+                </RadzenRow>
+            </RadzenCard>
+        </Template>
+    </RadzenDataList>
+
+    @if (sesionSeleccionada != null)
+    {
+        <RadzenCard class="rz-background-color-warning-lighter">
+            <RadzenText TextStyle="TextStyle.Body1">
+                <strong>Sesión seleccionada:</strong><br/>
+                Usuario: @sesionSeleccionada.UsuarioNombre<br/>
+                Cajón: @sesionSeleccionada.CajonNumero<br/>
+                Tiempo: @sesionSeleccionada.TiempoFormateado<br/>
+                <strong>Monto a cobrar: S/ @sesionSeleccionada.MontoTotal.ToString("N2")</strong>
+            </RadzenText>
+        </RadzenCard>
+    }
+
+    <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" JustifyContent="JustifyContent.End">
+        <RadzenButton Text="Cancelar" ButtonStyle="ButtonStyle.Light" Click="@Cancelar" />
+        <RadzenButton Text="Solicitar Salida" Icon="exit_to_app" ButtonStyle="ButtonStyle.Warning" 
+            Disabled="@(sesionSeleccionada == null)"
+            Click="@Confirmar" />
+    </RadzenStack>
+</RadzenStack>
+
+<style>
+    .sesion-item {
+        transition: all 0.2s ease;
+        border: 2px solid transparent;
+    }
+    .sesion-item:hover {
+        background: var(--rz-base-200);
+    }
+    .sesion-item.seleccionada {
+        border-color: var(--rz-primary);
+        background: var(--rz-primary-lighter);
+    }
+</style>
+
+@code {
+    [Parameter] public List<SesionEstacionamientoDto> SesionesActivas { get; set; } = new();
+
+    private SesionEstacionamientoDto? sesionSeleccionada;
+
+    private string GetSesionItemClass(SesionEstacionamientoDto sesion)
+    {
+        return sesionSeleccionada?.Id == sesion.Id ? "sesion-item seleccionada" : "sesion-item";
+    }
+
+    private void SeleccionarSesion(SesionEstacionamientoDto sesion)
+    {
+        sesionSeleccionada = sesion;
+    }
+
+    private void Cancelar()
+    {
+        DialogService.Close(null);
+    }
+
+    private void Confirmar()
+    {
+        DialogService.Close(sesionSeleccionada);
+    }
+}

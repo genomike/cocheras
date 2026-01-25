@@ -18,9 +18,12 @@
 }
 else
 {
-<RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="rz-mb-4">
-    <RadzenIcon Icon="attach_money" /> Administración de Tarifas
-</RadzenText>
+<RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" class="rz-mb-4">
+    <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="rz-mb-0">
+        <RadzenIcon Icon="attach_money" /> Administración de Tarifas
+    </RadzenText>
+    <RadzenButton Icon="refresh" Text="Actualizar" ButtonStyle="ButtonStyle.Light" Click="@CargarDatos" />
+</RadzenStack>
 
 <RadzenRow Gap="1rem">
     <RadzenColumn Size="12" SizeMD="4">
@@ -79,7 +82,7 @@ else
                 AllowPaging="true" PageSize="10" PagerHorizontalAlign="HorizontalAlign.Center">
                 <Columns>
                     <RadzenDataGridColumn TItem="TarifaDto" Property="Id" Title="ID" Width="60px" />
-                    <RadzenDataGridColumn TItem="TarifaDto" Property="PrecioPorMinuto" Title="Precio/Min" FormatString="{0:C}" Width="120px" />
+                    <RadzenDataGridColumn TItem="TarifaDto" Property="PrecioPorMinuto" Title="Precio/Min" FormatString="S/ {0:N2}" Width="120px" />
                     <RadzenDataGridColumn TItem="TarifaDto" Property="FechaInicio" Title="Inicio" FormatString="{0:dd/MM/yy HH:mm}" Width="140px" />
                     <RadzenDataGridColumn TItem="TarifaDto" Property="FechaFin" Title="Fin" Width="140px">
                         <Template Context="tarifa">

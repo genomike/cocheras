@@ -43,6 +43,9 @@ builder.Services.AddScoped<IEstadoCocheraService, EstadoCocheraService>();
 builder.Services.AddScoped<ITarifaService, TarifaService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 
+// Servicio de notificaciones de sesiones (SignalR)
+builder.Services.AddScoped<ISesionNotificationService, SesionNotificationService>();
+
 // Usuario Actual Service (Cascading/Singleton para Blazor Server)
 builder.Services.AddScoped<UsuarioActualService>();
 

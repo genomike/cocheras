@@ -20,6 +20,14 @@ public class SesionEstacionamientoRepository : Repository<SesionEstacionamiento>
             .FirstOrDefaultAsync(s => s.UsuarioId == usuarioId && s.Estado == EstadoSesion.Activa, cancellationToken);
     }
 
+    public async Task<SesionEstacionamiento?> GetSesionPendientePagoByUsuarioAsync(int usuarioId, CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Include(s => s.Usuario)
+            .Include(s => s.Cajon)
+            .FirstOrDefaultAsync(s => s.UsuarioId == usuarioId && s.Estado == EstadoSesion.PendientePago, cancellationToken);
+    }
+
     public async Task<SesionEstacionamiento?> GetSesionActivaByCajonAsync(int cajonId, CancellationToken cancellationToken = default)
     {
         return await _dbSet
@@ -34,6 +42,15 @@ public class SesionEstacionamientoRepository : Repository<SesionEstacionamiento>
             .Include(s => s.Usuario)
             .Include(s => s.Cajon)
             .Where(s => s.Estado == EstadoSesion.Activa)
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IEnumerable<SesionEstacionamiento>> GetSesionesPendientesPagoAsync(CancellationToken cancellationToken = default)
+    {
+        return await _dbSet
+            .Include(s => s.Usuario)
+            .Include(s => s.Cajon)
+            .Where(s => s.Estado == EstadoSesion.PendientePago)
             .ToListAsync(cancellationToken);
     }
 
