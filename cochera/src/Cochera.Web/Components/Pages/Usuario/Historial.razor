@@ -1,0 +1,220 @@
+@page "/usuario/historial"
+@using Cochera.Application.DTOs
+@using Cochera.Application.Interfaces
+@using Cochera.Web.Services
+@using Cochera.Domain.Enums
+@using Radzen
+@using Radzen.Blazor
+@inject ISesionService SesionService
+@inject UsuarioActualService UsuarioActualService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Mi Historial - Cochera</PageTitle>
+
+@if (!UsuarioActualService.EstaLogueado || UsuarioActualService.EsAdmin)
+{
+    <RadzenAlert AlertStyle="AlertStyle.Danger">Acceso denegado.</RadzenAlert>
+}
+else
+{
+    <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="rz-mb-4">
+        <RadzenIcon Icon="history" /> Mi Historial de Visitas
+    </RadzenText>
+
+    <RadzenText TextStyle="TextStyle.H6" class="rz-color-secondary rz-mb-4">
+        Historial de estacionamiento de <strong>@UsuarioActualService.UsuarioActual?.Nombre</strong>
+    </RadzenText>
+
+    <!-- Estadísticas -->
+    <RadzenRow Gap="1rem" class="rz-mb-4">
+        <RadzenColumn Size="6" SizeMD="3">
+            <RadzenCard class="rz-shadow-3 stat-card">
+                <RadzenIcon Icon="local_parking" Style="font-size: 2.5rem; color: var(--rz-primary);" />
+                <RadzenText TextStyle="TextStyle.H4">@totalVisitas</RadzenText>
+                <RadzenText TextStyle="TextStyle.Caption">Visitas Totales</RadzenText>
+            </RadzenCard>
+        </RadzenColumn>
+        <RadzenColumn Size="6" SizeMD="3">
+            <RadzenCard class="rz-shadow-3 stat-card">
+                <RadzenIcon Icon="timer" Style="font-size: 2.5rem; color: var(--rz-info);" />
+                <RadzenText TextStyle="TextStyle.H4">@totalMinutos min</RadzenText>
+                <RadzenText TextStyle="TextStyle.Caption">Tiempo Total</RadzenText>
+            </RadzenCard>
+        </RadzenColumn>
+        <RadzenColumn Size="6" SizeMD="3">
+            <RadzenCard class="rz-shadow-3 stat-card">
+                <RadzenIcon Icon="payments" Style="font-size: 2.5rem; color: var(--rz-success);" />
+                <RadzenText TextStyle="TextStyle.H4">S/ @totalGastado.ToString("N2")</RadzenText>
+                <RadzenText TextStyle="TextStyle.Caption">Total Gastado</RadzenText>
+            </RadzenCard>
+        </RadzenColumn>
+        <RadzenColumn Size="6" SizeMD="3">
+            <RadzenCard class="rz-shadow-3 stat-card">
+                <RadzenIcon Icon="star" Style="font-size: 2.5rem; color: var(--rz-warning);" />
+                <RadzenText TextStyle="TextStyle.H4">Cajón @cajonFavorito</RadzenText>
+                <RadzenText TextStyle="TextStyle.Caption">Cajón Favorito</RadzenText>
+            </RadzenCard>
+        </RadzenColumn>
+    </RadzenRow>
+
+    <!-- Historial detallado -->
+    <RadzenCard class="rz-shadow-3">
+        <RadzenText TextStyle="TextStyle.H5" class="rz-mb-4">
+            <RadzenIcon Icon="list" /> Detalle de Visitas
+        </RadzenText>
+
+        @if (historial.Any())
+        {
+            <RadzenDataGrid Data="@historial" TItem="SesionEstacionamientoDto" 
+                AllowPaging="true" PageSize="10" AllowSorting="true">
+                <Columns>
+                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="HoraEntrada" Title="Fecha" Width="120px">
+                        <Template Context="sesion">
+                            <RadzenText>@sesion.HoraEntrada.ToString("dd/MM/yyyy")</RadzenText>
+                            <RadzenText TextStyle="TextStyle.Caption" class="rz-color-secondary">@sesion.HoraEntrada.ToString("dddd")</RadzenText>
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="CajonNumero" Title="Cajón" Width="80px" TextAlign="TextAlign.Center">
+                        <Template Context="sesion">
+                            <RadzenBadge BadgeStyle="BadgeStyle.Primary" Text="@($"# {sesion.CajonNumero}")" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Title="Horario" Width="150px">
+                        <Template Context="sesion">
+                            <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center">
+                                <RadzenIcon Icon="login" Style="color: var(--rz-success);" />
+                                <span>@sesion.HoraEntrada.ToString("HH:mm")</span>
+                                <span>→</span>
+                                <RadzenIcon Icon="logout" Style="color: var(--rz-danger);" />
+                                <span>@(sesion.HoraSalida?.ToString("HH:mm") ?? "--:--")</span>
+                            </RadzenStack>
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="MinutosEstacionado" Title="Duración" Width="100px">
+                        <Template Context="sesion">
+                            <RadzenText><strong>@sesion.MinutosEstacionado</strong> min</RadzenText>
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="MontoTotal" Title="Costo" Width="100px">
+                        <Template Context="sesion">
+                            <RadzenText Style="color: var(--rz-success); font-weight: bold;">
+                                S/ @sesion.MontoTotal.ToString("N2")
+                            </RadzenText>
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="Estado" Title="Estado" Width="120px">
+                        <Template Context="sesion">
+                            @switch (sesion.Estado)
+                            {
+                                case EstadoSesion.Activa:
+                                    <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="🚗 En curso" />
+                                    break;
+                                case EstadoSesion.Finalizada:
+                                    <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="✓ Finalizada" />
+                                    break;
+                                case EstadoSesion.Cancelada:
+                                    <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="✗ Cancelada" />
+                                    break;
+                            }
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        }
+        else
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Info">
+                <RadzenIcon Icon="info" /> No tienes historial de visitas aún. ¡Realiza tu primera visita!
+            </RadzenAlert>
+        }
+    </RadzenCard>
+
+    @if (historial.Any())
+    {
+        <!-- Gráfico de visitas -->
+        <RadzenCard class="rz-shadow-3 rz-mt-4">
+            <RadzenText TextStyle="TextStyle.H5" class="rz-mb-4">
+                <RadzenIcon Icon="show_chart" /> Visitas por Mes
+            </RadzenText>
+            <RadzenChart>
+                <RadzenLineSeries Data="@visitasPorMes" CategoryProperty="Mes" ValueProperty="Cantidad" Title="Visitas" Smooth="true" />
+                <RadzenCategoryAxis>
+                    <RadzenAxisTitle Text="Mes" />
+                </RadzenCategoryAxis>
+                <RadzenValueAxis>
+                    <RadzenAxisTitle Text="Cantidad" />
+                </RadzenValueAxis>
+            </RadzenChart>
+        </RadzenCard>
+    }
+}
+
+<style>
+    .stat-card {
+        text-align: center;
+        padding: 1.5rem;
+    }
+    .stat-card .rz-icon {
+        margin-bottom: 0.5rem;
+    }
+</style>
+
+@code {
+    private List<SesionEstacionamientoDto> historial = new();
+    private int totalVisitas;
+    private int totalMinutos;
+    private decimal totalGastado;
+    private int cajonFavorito;
+    private List<VisitaMes> visitasPorMes = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!UsuarioActualService.EstaLogueado || UsuarioActualService.EsAdmin)
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+        
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        if (!UsuarioActualService.UsuarioId.HasValue) return;
+
+        historial = (await SesionService.GetSesionesByUsuarioAsync(UsuarioActualService.UsuarioId.Value))
+            .OrderByDescending(s => s.HoraEntrada)
+            .ToList();
+        
+        totalVisitas = historial.Count;
+        totalMinutos = historial.Sum(s => s.MinutosEstacionado);
+        totalGastado = historial.Where(s => s.Estado == EstadoSesion.Finalizada).Sum(s => s.MontoTotal);
+        
+        // Cajón más usado
+        if (historial.Any())
+        {
+            cajonFavorito = historial
+                .GroupBy(s => s.CajonNumero)
+                .OrderByDescending(g => g.Count())
+                .First().Key;
+        }
+
+        // Visitas por mes
+        visitasPorMes = historial
+            .GroupBy(s => new { s.HoraEntrada.Year, s.HoraEntrada.Month })
+            .Select(g => new VisitaMes
+            {
+                Mes = $"{g.Key.Month:00}/{g.Key.Year}",
+                Cantidad = g.Count()
+            })
+            .OrderBy(v => v.Mes)
+            .ToList();
+    }
+
+    private class VisitaMes
+    {
+        public string Mes { get; set; } = "";
+        public int Cantidad { get; set; }
+    }
+}

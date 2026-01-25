@@ -1,0 +1,135 @@
+@page "/admin/cajones"
+@using Cochera.Application.DTOs
+@using Cochera.Application.Interfaces
+@using Cochera.Web.Services
+@using Cochera.Domain.Enums
+@using Radzen
+@using Radzen.Blazor
+@inject ICajonService CajonService
+@inject UsuarioActualService UsuarioActualService
+@inject NavigationManager Navigation
+@inject NotificationService NotificationService
+@rendermode InteractiveServer
+
+<PageTitle>Gestión de Cajones - Admin</PageTitle>
+
+@if (!UsuarioActualService.EsAdmin)
+{
+    <RadzenAlert AlertStyle="AlertStyle.Danger">Acceso denegado. Esta página es solo para administradores.</RadzenAlert>
+}
+else
+{
+    <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="rz-mb-4">
+        <RadzenIcon Icon="garage" /> Gestión de Cajones
+    </RadzenText>
+
+    <RadzenButton Icon="refresh" Text="Actualizar" Click="@LoadCajones" class="rz-mb-4" />
+
+    <RadzenRow Gap="1rem">
+        @foreach (var cajon in cajones)
+        {
+            <RadzenColumn Size="12" SizeMD="6">
+                <RadzenCard class="@($"rz-shadow-4 cajon-card {(cajon.Estado == EstadoCajon.Ocupado ? "ocupado" : "libre")}")">
+                    <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
+                        <div>
+                            <RadzenText TextStyle="TextStyle.H4">
+                                <RadzenIcon Icon="garage" /> Cajón @cajon.Numero
+                            </RadzenText>
+                            <RadzenText TextStyle="TextStyle.Body1" class="rz-mt-2">
+                                Estado: 
+                                @if (cajon.Estado == EstadoCajon.Libre)
+                                {
+                                    <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="✅ Libre" />
+                                }
+                                else
+                                {
+                                    <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="🚗 Ocupado" />
+                                }
+                            </RadzenText>
+                            @if (cajon.UltimoCambioEstado.HasValue)
+                            {
+                                <RadzenText TextStyle="TextStyle.Caption" class="rz-color-secondary">
+                                    Último cambio: @cajon.UltimoCambioEstado.Value.ToString("dd/MM/yyyy HH:mm:ss")
+                                </RadzenText>
+                            }
+                        </div>
+                        <div style="font-size: 5rem;">
+                            @if (cajon.Estado == EstadoCajon.Ocupado)
+                            {
+                                <span>🚗</span>
+                            }
+                            else
+                            {
+                                <span>🅿️</span>
+                            }
+                        </div>
+                    </RadzenStack>
+                </RadzenCard>
+            </RadzenColumn>
+        }
+    </RadzenRow>
+
+    <RadzenCard class="rz-shadow-3 rz-mt-4">
+        <RadzenText TextStyle="TextStyle.H5" class="rz-mb-4">
+            <RadzenIcon Icon="info" /> Información de Cajones
+        </RadzenText>
+        <RadzenDataGrid Data="@cajones" TItem="CajonDto">
+            <Columns>
+                <RadzenDataGridColumn TItem="CajonDto" Property="Id" Title="ID" Width="60px" />
+                <RadzenDataGridColumn TItem="CajonDto" Property="Numero" Title="Número" Width="80px" />
+                <RadzenDataGridColumn TItem="CajonDto" Property="EstadoTexto" Title="Estado" />
+                <RadzenDataGridColumn TItem="CajonDto" Property="UltimoCambioEstado" Title="Último Cambio" FormatString="{0:dd/MM/yyyy HH:mm:ss}" />
+                <RadzenDataGridColumn TItem="CajonDto" Property="FechaCreacion" Title="Fecha Creación" FormatString="{0:dd/MM/yyyy}" />
+            </Columns>
+        </RadzenDataGrid>
+    </RadzenCard>
+
+    <RadzenCard class="rz-shadow-2 rz-mt-4">
+        <RadzenText TextStyle="TextStyle.H6">
+            <RadzenIcon Icon="summarize" /> Resumen
+        </RadzenText>
+        <RadzenText>
+            <strong>Libres:</strong> @cajones.Count(c => c.Estado == EstadoCajon.Libre) |
+            <strong>Ocupados:</strong> @cajones.Count(c => c.Estado == EstadoCajon.Ocupado)
+        </RadzenText>
+    </RadzenCard>
+}
+
+<style>
+    .cajon-card {
+        padding: 1.5rem;
+        border-radius: 12px;
+        transition: transform 0.2s;
+    }
+    .cajon-card:hover {
+        transform: translateY(-4px);
+    }
+    .cajon-card.libre {
+        background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+        border-left: 5px solid #4caf50;
+    }
+    .cajon-card.ocupado {
+        background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+        border-left: 5px solid #f44336;
+    }
+</style>
+
+@code {
+    private List<CajonDto> cajones = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!UsuarioActualService.EsAdmin)
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+        
+        await LoadCajones();
+    }
+
+    private async Task LoadCajones()
+    {
+        cajones = (await CajonService.GetAllAsync()).ToList();
+    }
+}

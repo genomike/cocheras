@@ -13,8 +13,8 @@ AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = Host.CreateApplicationBuilder(args);
 
-// Database
-builder.Services.AddDbContext<CocheraDbContext>(options =>
+// Database - Usando Factory para compatibilidad con UnitOfWork
+builder.Services.AddDbContextFactory<CocheraDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Unit of Work
@@ -41,11 +41,13 @@ builder.Services.AddHostedService<MqttWorker>();
 
 var host = builder.Build();
 
-// Asegurar que la base de datos existe y aplicar migraciones
+// Asegurar que la base de datos existe (solo verificamos conexión, dejamos las migraciones a la Web)
 using (var scope = host.Services.CreateScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<CocheraDbContext>();
-    await db.Database.MigrateAsync();
+    // No ejecutamos migraciones aquí para evitar conflictos de concurrencia con la Web
+    // var contextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<CocheraDbContext>>();
+    // await using var db = await contextFactory.CreateDbContextAsync();
+    // await db.Database.MigrateAsync();
 }
 
 await host.RunAsync();

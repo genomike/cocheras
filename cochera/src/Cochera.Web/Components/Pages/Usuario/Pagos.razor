@@ -1,0 +1,170 @@
+@page "/usuario/pagos"
+@using Cochera.Application.DTOs
+@using Cochera.Application.Interfaces
+@using Cochera.Web.Services
+@using Cochera.Domain.Enums
+@using Radzen
+@using Radzen.Blazor
+@inject ISesionService SesionService
+@inject UsuarioActualService UsuarioActualService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Mis Pagos - Cochera</PageTitle>
+
+@if (!UsuarioActualService.EstaLogueado || UsuarioActualService.EsAdmin)
+{
+    <RadzenAlert AlertStyle="AlertStyle.Danger">Acceso denegado.</RadzenAlert>
+}
+else
+{
+    <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="rz-mb-4">
+        <RadzenIcon Icon="payment" /> Mis Pagos
+    </RadzenText>
+
+    <!-- Resumen -->
+    <RadzenRow Gap="1rem" class="rz-mb-4">
+        <RadzenColumn Size="12" SizeMD="4">
+            <RadzenCard class="rz-shadow-3 summary-card">
+                <RadzenIcon Icon="payments" Style="font-size: 3rem; color: var(--rz-success);" />
+                <div>
+                    <RadzenText TextStyle="TextStyle.Caption">Total Pagado</RadzenText>
+                    <RadzenText TextStyle="TextStyle.H4">S/ @totalPagado.ToString("N2")</RadzenText>
+                </div>
+            </RadzenCard>
+        </RadzenColumn>
+        <RadzenColumn Size="12" SizeMD="4">
+            <RadzenCard class="rz-shadow-3 summary-card">
+                <RadzenIcon Icon="receipt" Style="font-size: 3rem; color: var(--rz-primary);" />
+                <div>
+                    <RadzenText TextStyle="TextStyle.Caption">Total Sesiones</RadzenText>
+                    <RadzenText TextStyle="TextStyle.H4">@sesionesPagadas.Count</RadzenText>
+                </div>
+            </RadzenCard>
+        </RadzenColumn>
+        <RadzenColumn Size="12" SizeMD="4">
+            <RadzenCard class="rz-shadow-3 summary-card">
+                <RadzenIcon Icon="timer" Style="font-size: 3rem; color: var(--rz-info);" />
+                <div>
+                    <RadzenText TextStyle="TextStyle.Caption">Total Minutos</RadzenText>
+                    <RadzenText TextStyle="TextStyle.H4">@totalMinutos min</RadzenText>
+                </div>
+            </RadzenCard>
+        </RadzenColumn>
+    </RadzenRow>
+
+    <!-- Lista de Pagos -->
+    <RadzenCard class="rz-shadow-3">
+        <RadzenText TextStyle="TextStyle.H5" class="rz-mb-4">
+            <RadzenIcon Icon="history" /> Historial de Pagos
+        </RadzenText>
+
+        @if (sesionesPagadas.Any())
+        {
+            <RadzenDataGrid Data="@sesionesPagadas" TItem="SesionEstacionamientoDto" 
+                AllowPaging="true" PageSize="10" AllowSorting="true">
+                <Columns>
+                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="FechaCreacion" Title="Fecha" 
+                        FormatString="{0:dd/MM/yyyy}" Width="100px" />
+                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="CajonNumero" Title="Cajón" Width="70px" TextAlign="TextAlign.Center" />
+                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="HoraEntrada" Title="Entrada" FormatString="{0:HH:mm}" Width="80px" />
+                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="HoraSalida" Title="Salida" FormatString="{0:HH:mm}" Width="80px" />
+                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="MinutosEstacionado" Title="Minutos" Width="80px" TextAlign="TextAlign.Center" />
+                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="TarifaPorMinuto" Title="Tarifa" FormatString="S/ {0:N2}/min" Width="100px" />
+                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="MontoTotal" Title="Total Pagado" Width="120px">
+                        <Template Context="sesion">
+                            <RadzenText TextStyle="TextStyle.Body1" Style="color: var(--rz-success); font-weight: bold;">
+                                S/ @sesion.MontoTotal.ToString("N2")
+                            </RadzenText>
+                        </Template>
+                    </RadzenDataGridColumn>
+                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Title="Estado" Width="100px">
+                        <Template Context="sesion">
+                            <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="✓ Pagado" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        }
+        else
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Info">
+                <RadzenIcon Icon="info" /> No tienes pagos registrados aún.
+            </RadzenAlert>
+        }
+    </RadzenCard>
+
+    @if (sesionesPagadas.Any())
+    {
+        <!-- Gráfico de pagos por mes -->
+        <RadzenCard class="rz-shadow-3 rz-mt-4">
+            <RadzenText TextStyle="TextStyle.H5" class="rz-mb-4">
+                <RadzenIcon Icon="bar_chart" /> Pagos por Mes
+            </RadzenText>
+            <RadzenChart>
+                <RadzenColumnSeries Data="@pagosPorMes" CategoryProperty="Mes" ValueProperty="Total" Title="Total Pagado" />
+                <RadzenCategoryAxis>
+                    <RadzenAxisTitle Text="Mes" />
+                </RadzenCategoryAxis>
+                <RadzenValueAxis FormatString="S/ {0:N0}">
+                    <RadzenAxisTitle Text="Monto" />
+                </RadzenValueAxis>
+            </RadzenChart>
+        </RadzenCard>
+    }
+}
+
+<style>
+    .summary-card {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1.5rem;
+    }
+</style>
+
+@code {
+    private List<SesionEstacionamientoDto> sesionesPagadas = new();
+    private decimal totalPagado;
+    private int totalMinutos;
+    private List<PagoMes> pagosPorMes = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!UsuarioActualService.EstaLogueado || UsuarioActualService.EsAdmin)
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+        
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        if (!UsuarioActualService.UsuarioId.HasValue) return;
+
+        var todasSesiones = await SesionService.GetSesionesByUsuarioAsync(UsuarioActualService.UsuarioId.Value);
+        sesionesPagadas = todasSesiones.Where(s => s.Estado == EstadoSesion.Finalizada).OrderByDescending(s => s.HoraEntrada).ToList();
+        
+        totalPagado = sesionesPagadas.Sum(s => s.MontoTotal);
+        totalMinutos = sesionesPagadas.Sum(s => s.MinutosEstacionado);
+
+        // Agrupar por mes
+        pagosPorMes = sesionesPagadas
+            .GroupBy(s => new { s.HoraEntrada.Year, s.HoraEntrada.Month })
+            .Select(g => new PagoMes
+            {
+                Mes = $"{g.Key.Month:00}/{g.Key.Year}",
+                Total = g.Sum(s => s.MontoTotal)
+            })
+            .OrderBy(p => p.Mes)
+            .ToList();
+    }
+
+    private class PagoMes
+    {
+        public string Mes { get; set; } = "";
+        public decimal Total { get; set; }
+    }
+}

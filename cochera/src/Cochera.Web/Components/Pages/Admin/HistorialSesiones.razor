@@ -1,0 +1,121 @@
+@page "/admin/historial"
+@using Cochera.Application.DTOs
+@using Cochera.Application.Interfaces
+@using Cochera.Web.Services
+@using Cochera.Domain.Enums
+@using Radzen
+@using Radzen.Blazor
+@inject ISesionService SesionService
+@inject UsuarioActualService UsuarioActualService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Historial de Sesiones - Admin</PageTitle>
+
+@if (!UsuarioActualService.EsAdmin)
+{
+    <RadzenAlert AlertStyle="AlertStyle.Danger">Acceso denegado. Esta página es solo para administradores.</RadzenAlert>
+}
+else
+{
+    <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="rz-mb-4">
+        <RadzenIcon Icon="history" /> Historial de Sesiones
+    </RadzenText>
+
+    <RadzenCard class="rz-shadow-3 rz-mb-4">
+        <RadzenRow Gap="1rem" AlignItems="AlignItems.End">
+            <RadzenColumn Size="12" SizeMD="3">
+                <RadzenFormField Text="Fecha Inicio" Variant="Variant.Outlined" Style="width: 100%;">
+                    <RadzenDatePicker @bind-Value="@fechaInicio" DateFormat="dd/MM/yyyy" Style="width: 100%;" />
+                </RadzenFormField>
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="3">
+                <RadzenFormField Text="Fecha Fin" Variant="Variant.Outlined" Style="width: 100%;">
+                    <RadzenDatePicker @bind-Value="@fechaFin" DateFormat="dd/MM/yyyy" Style="width: 100%;" />
+                </RadzenFormField>
+            </RadzenColumn>
+            <RadzenColumn Size="12" SizeMD="3">
+                <RadzenButton Icon="search" Text="Buscar" Click="@LoadSesiones" />
+                <RadzenButton Icon="refresh" Text="Limpiar" ButtonStyle="ButtonStyle.Light" Click="@LimpiarFiltros" class="rz-ml-2" />
+            </RadzenColumn>
+        </RadzenRow>
+    </RadzenCard>
+
+    <RadzenCard class="rz-shadow-3">
+        <RadzenDataGrid Data="@sesiones" TItem="SesionEstacionamientoDto" AllowPaging="true" PageSize="15" 
+            AllowSorting="true" AllowFiltering="true" FilterMode="FilterMode.Simple">
+            <Columns>
+                <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="Id" Title="ID" Width="60px" />
+                <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="UsuarioNombre" Title="Usuario" />
+                <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="CajonNumero" Title="Cajón" Width="80px" TextAlign="TextAlign.Center" />
+                <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="HoraEntrada" Title="Entrada" FormatString="{0:dd/MM HH:mm}" Width="120px" />
+                <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="HoraSalida" Title="Salida" FormatString="{0:dd/MM HH:mm}" Width="120px" />
+                <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="MinutosEstacionado" Title="Min" Width="60px" TextAlign="TextAlign.Center" />
+                <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="TarifaPorMinuto" Title="Tarifa" FormatString="{0:C}" Width="80px" />
+                <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="MontoTotal" Title="Total" FormatString="{0:C}" Width="100px" />
+                <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="EstadoTexto" Title="Estado" Width="100px">
+                    <Template Context="sesion">
+                        @switch (sesion.Estado)
+                        {
+                            case EstadoSesion.Activa:
+                                <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="En curso" />
+                                break;
+                            case EstadoSesion.Finalizada:
+                                <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="Finalizada" />
+                                break;
+                            case EstadoSesion.Cancelada:
+                                <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="Cancelada" />
+                                break;
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+
+        <RadzenCard class="rz-mt-4 rz-background-color-info-lighter">
+            <RadzenText TextStyle="TextStyle.Body1">
+                <strong>Total sesiones:</strong> @sesiones.Count |
+                <strong>Total recaudado:</strong> S/ @sesiones.Where(s => s.Estado == EstadoSesion.Finalizada).Sum(s => s.MontoTotal).ToString("N2")
+            </RadzenText>
+        </RadzenCard>
+    </RadzenCard>
+}
+
+@code {
+    private List<SesionEstacionamientoDto> sesiones = new();
+    private DateTime? fechaInicio;
+    private DateTime? fechaFin;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!UsuarioActualService.EsAdmin)
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+        
+        fechaInicio = DateTime.Today.AddDays(-30);
+        fechaFin = DateTime.Today;
+        await LoadSesiones();
+    }
+
+    private async Task LoadSesiones()
+    {
+        sesiones = (await SesionService.GetAllAsync()).ToList();
+        
+        if (fechaInicio.HasValue)
+            sesiones = sesiones.Where(s => s.HoraEntrada >= fechaInicio.Value).ToList();
+        
+        if (fechaFin.HasValue)
+            sesiones = sesiones.Where(s => s.HoraEntrada <= fechaFin.Value.AddDays(1)).ToList();
+        
+        sesiones = sesiones.OrderByDescending(s => s.HoraEntrada).ToList();
+    }
+
+    private async Task LimpiarFiltros()
+    {
+        fechaInicio = DateTime.Today.AddDays(-30);
+        fechaFin = DateTime.Today;
+        await LoadSesiones();
+    }
+}

@@ -1,0 +1,193 @@
+@page "/usuario/disponibilidad"
+@using Cochera.Application.DTOs
+@using Cochera.Application.Interfaces
+@using Cochera.Web.Services
+@using Cochera.Domain.Enums
+@using Microsoft.AspNetCore.SignalR.Client
+@using Radzen
+@using Radzen.Blazor
+@inject ICajonService CajonService
+@inject IEstadoCocheraService EstadoCocheraService
+@inject UsuarioActualService UsuarioActualService
+@inject NavigationManager Navigation
+@implements IAsyncDisposable
+@rendermode InteractiveServer
+
+<PageTitle>Disponibilidad - Cochera</PageTitle>
+
+@if (!UsuarioActualService.EstaLogueado || UsuarioActualService.EsAdmin)
+{
+    <RadzenAlert AlertStyle="AlertStyle.Danger">Acceso denegado.</RadzenAlert>
+}
+else
+{
+    <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="rz-mb-4">
+        <RadzenIcon Icon="local_parking" /> Disponibilidad de Estacionamiento
+    </RadzenText>
+
+    <RadzenText TextStyle="TextStyle.H6" class="rz-color-secondary rz-mb-4">
+        Hola, <strong>@UsuarioActualService.UsuarioActual?.Nombre</strong>! Aquí puedes ver el estado actual de los cajones.
+    </RadzenText>
+
+    @if (estadoCochera == null)
+    {
+        <RadzenProgressBarCircular ShowValue="true" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Large" />
+    }
+    else
+    {
+        <!-- Resumen del estado -->
+        <RadzenCard class="@($"rz-shadow-3 rz-mb-4 {(estadoCochera.CocheraLlena ? "cochera-llena" : "cochera-disponible")}")">
+            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.Center" Gap="2rem">
+                <RadzenIcon Icon="@(estadoCochera.CocheraLlena ? "block" : "check_circle")" 
+                    Style="@($"font-size: 4rem; color: {(estadoCochera.CocheraLlena ? "var(--rz-danger)" : "var(--rz-success)")}")" />
+                <div style="text-align: center;">
+                    <RadzenText TextStyle="TextStyle.H3">
+                        @if (estadoCochera.CocheraLlena)
+                        {
+                            <span style="color: var(--rz-danger);">🚫 COCHERA LLENA</span>
+                        }
+                        else
+                        {
+                            <span style="color: var(--rz-success);">✅ HAY ESPACIO DISPONIBLE</span>
+                        }
+                    </RadzenText>
+                    <RadzenText TextStyle="TextStyle.H5" class="rz-color-secondary">
+                        @estadoCochera.CajonesLibres de 2 cajones disponibles
+                    </RadzenText>
+                </div>
+            </RadzenStack>
+        </RadzenCard>
+
+        <!-- Cajones visuales -->
+        <RadzenRow Gap="2rem" JustifyContent="JustifyContent.Center" class="rz-mb-4">
+            @foreach (var cajon in cajones)
+            {
+                <RadzenColumn Size="12" SizeMD="5">
+                    <RadzenCard class="@GetCajonClass(cajon)" Style="text-align: center; padding: 2rem;">
+                        <div style="font-size: 6rem; margin-bottom: 1rem;">
+                            @if (cajon.Estado == EstadoCajon.Ocupado)
+                            {
+                                <span>🚗</span>
+                            }
+                            else
+                            {
+                                <span>🅿️</span>
+                            }
+                        </div>
+                        <RadzenText TextStyle="TextStyle.H3">Cajón @cajon.Numero</RadzenText>
+                        <RadzenText TextStyle="TextStyle.H5" class="rz-mt-2">
+                            @if (cajon.Estado == EstadoCajon.Libre)
+                            {
+                                <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="LIBRE" Style="font-size: 1.2rem; padding: 0.5rem 1rem;" />
+                            }
+                            else
+                            {
+                                <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="OCUPADO" Style="font-size: 1.2rem; padding: 0.5rem 1rem;" />
+                            }
+                        </RadzenText>
+                    </RadzenCard>
+                </RadzenColumn>
+            }
+        </RadzenRow>
+
+        <!-- Botón para ir a estacionar -->
+        @if (!estadoCochera.CocheraLlena)
+        {
+            <div style="text-align: center;">
+                <RadzenButton Text="Ir a Estacionar" Icon="directions_car" Size="ButtonSize.Large"
+                    ButtonStyle="ButtonStyle.Primary" Click="@IrAEstacionar" />
+            </div>
+        }
+    }
+}
+
+<style>
+    .cochera-disponible {
+        background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+        border: 2px solid #4caf50;
+    }
+    .cochera-llena {
+        background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+        border: 2px solid #f44336;
+    }
+    .cajon-visual {
+        border-radius: 16px;
+        transition: transform 0.3s;
+    }
+    .cajon-visual:hover {
+        transform: scale(1.02);
+    }
+    .cajon-libre {
+        background: linear-gradient(180deg, #e8f5e9 0%, #a5d6a7 100%);
+        border: 3px solid #4caf50;
+    }
+    .cajon-ocupado {
+        background: linear-gradient(180deg, #ffebee 0%, #ef9a9a 100%);
+        border: 3px solid #f44336;
+    }
+    .cajon-mantenimiento {
+        background: linear-gradient(180deg, #fff3e0 0%, #ffcc80 100%);
+        border: 3px solid #ff9800;
+    }
+</style>
+
+@code {
+    private List<CajonDto> cajones = new();
+    private EstadoCocheraDto? estadoCochera;
+    private HubConnection? hubConnection;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!UsuarioActualService.EstaLogueado || UsuarioActualService.EsAdmin)
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+        
+        await LoadData();
+        await SetupSignalR();
+    }
+
+    private async Task LoadData()
+    {
+        cajones = (await CajonService.GetAllAsync()).ToList();
+        estadoCochera = await EstadoCocheraService.GetEstadoActualAsync();
+    }
+
+    private async Task SetupSignalR()
+    {
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/cocherahub"))
+            .WithAutomaticReconnect()
+            .Build();
+
+        hubConnection.On<EstadoCocheraDto>("RecibirEstado", async (estado) =>
+        {
+            estadoCochera = estado;
+            cajones = (await CajonService.GetAllAsync()).ToList();
+            await InvokeAsync(StateHasChanged);
+        });
+
+        await hubConnection.StartAsync();
+    }
+
+    private string GetCajonClass(CajonDto cajon)
+    {
+        return cajon.Estado == EstadoCajon.Libre 
+            ? "rz-shadow-4 cajon-visual cajon-libre" 
+            : "rz-shadow-4 cajon-visual cajon-ocupado";
+    }
+
+    private void IrAEstacionar()
+    {
+        Navigation.NavigateTo("/usuario/estacionamiento");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection != null)
+        {
+            await hubConnection.DisposeAsync();
+        }
+    }
+}

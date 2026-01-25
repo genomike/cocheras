@@ -1,5 +1,6 @@
 using Cochera.Domain.Interfaces;
 using Cochera.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Cochera.Infrastructure.Repositories;
@@ -17,9 +18,9 @@ public class UnitOfWork : IUnitOfWork
     private IEstadoCocheraRepository? _estadoCochera;
     private IPagoRepository? _pagos;
 
-    public UnitOfWork(CocheraDbContext context)
+    public UnitOfWork(IDbContextFactory<CocheraDbContext> contextFactory)
     {
-        _context = context;
+        _context = contextFactory.CreateDbContext();
     }
 
     public IUsuarioRepository Usuarios => _usuarios ??= new UsuarioRepository(_context);

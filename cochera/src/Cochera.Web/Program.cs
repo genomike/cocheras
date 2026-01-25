@@ -5,6 +5,7 @@ using Cochera.Infrastructure.Data;
 using Cochera.Infrastructure.Repositories;
 using Cochera.Web.Components;
 using Cochera.Web.Hubs;
+using Cochera.Web.Services;
 using Microsoft.EntityFrameworkCore;
 using Radzen;
 
@@ -26,8 +27,8 @@ builder.Services.AddScoped<ContextMenuService>();
 // SignalR
 builder.Services.AddSignalR();
 
-// Database
-builder.Services.AddDbContext<CocheraDbContext>(options =>
+// Database - Usando Factory para Blazor Server concurrency
+builder.Services.AddDbContextFactory<CocheraDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Unit of Work
@@ -41,6 +42,9 @@ builder.Services.AddScoped<IEventoSensorService, EventoSensorService>();
 builder.Services.AddScoped<IEstadoCocheraService, EstadoCocheraService>();
 builder.Services.AddScoped<ITarifaService, TarifaService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
+
+// Usuario Actual Service (Cascading/Singleton para Blazor Server)
+builder.Services.AddScoped<UsuarioActualService>();
 
 var app = builder.Build();
 
@@ -64,7 +68,8 @@ app.MapHub<CocheraHub>("/cocherahub");
 // Asegurar que la base de datos existe
 using (var scope = app.Services.CreateScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<CocheraDbContext>();
+    var contextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<CocheraDbContext>>();
+    await using var db = await contextFactory.CreateDbContextAsync();
     await db.Database.MigrateAsync();
 }
 

@@ -1,0 +1,115 @@
+@page "/admin/sesiones"
+@using Cochera.Application.DTOs
+@using Cochera.Application.Interfaces
+@using Cochera.Web.Services
+@using Cochera.Domain.Enums
+@using Microsoft.AspNetCore.SignalR.Client
+@using Radzen
+@using Radzen.Blazor
+@inject ISesionService SesionService
+@inject UsuarioActualService UsuarioActualService
+@inject NavigationManager Navigation
+@inject NotificationService NotificationService
+@implements IAsyncDisposable
+@rendermode InteractiveServer
+
+<PageTitle>Sesiones Activas - Admin</PageTitle>
+
+@if (!UsuarioActualService.EsAdmin)
+{
+    <RadzenAlert AlertStyle="AlertStyle.Danger">Acceso denegado. Esta página es solo para administradores.</RadzenAlert>
+}
+else
+{
+    <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="rz-mb-4">
+        <RadzenIcon Icon="local_parking" /> Sesiones Activas
+    </RadzenText>
+
+    <RadzenButton Icon="refresh" Text="Actualizar" Click="@LoadSesiones" class="rz-mb-4" />
+
+    <RadzenCard class="rz-shadow-3">
+        @if (sesionesActivas.Any())
+        {
+            <RadzenDataGrid Data="@sesionesActivas" TItem="SesionEstacionamientoDto" AllowPaging="true" PageSize="10">
+                <Columns>
+                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="Id" Title="ID" Width="60px" />
+                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="UsuarioNombre" Title="Usuario" />
+                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="CajonNumero" Title="Cajón" Width="80px" TextAlign="TextAlign.Center" />
+                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="HoraEntrada" Title="Hora Entrada" FormatString="{0:dd/MM/yyyy HH:mm:ss}" />
+                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="MinutosEstacionado" Title="Minutos" Width="80px" TextAlign="TextAlign.Center" />
+                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="TarifaPorMinuto" Title="Tarifa/Min" FormatString="{0:C}" Width="100px" />
+                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="MontoTotal" Title="Monto Acumulado" FormatString="{0:C}" Width="120px" />
+                    <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Title="Estado" Width="100px">
+                        <Template Context="sesion">
+                            <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="En curso" />
+                        </Template>
+                    </RadzenDataGridColumn>
+                </Columns>
+            </RadzenDataGrid>
+        }
+        else
+        {
+            <RadzenAlert AlertStyle="AlertStyle.Info">
+                No hay sesiones activas en este momento.
+            </RadzenAlert>
+        }
+    </RadzenCard>
+}
+
+@code {
+    private List<SesionEstacionamientoDto> sesionesActivas = new();
+    private HubConnection? hubConnection;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!UsuarioActualService.EsAdmin)
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+        
+        await LoadSesiones();
+        await SetupSignalR();
+    }
+
+    private async Task LoadSesiones()
+    {
+        sesionesActivas = (await SesionService.GetSesionesActivasAsync()).ToList();
+    }
+
+    private async Task SetupSignalR()
+    {
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/cocherahub"))
+            .WithAutomaticReconnect()
+            .Build();
+
+        hubConnection.On<SesionEstacionamientoDto>("SesionIniciada", async (sesion) =>
+        {
+            sesionesActivas.Add(sesion);
+            await InvokeAsync(StateHasChanged);
+            NotificationService.Notify(NotificationSeverity.Info, "Nueva sesión", $"Usuario {sesion.UsuarioNombre} en Cajón {sesion.CajonNumero}");
+        });
+
+        hubConnection.On<SesionEstacionamientoDto>("SesionFinalizada", async (sesion) =>
+        {
+            var existing = sesionesActivas.FirstOrDefault(s => s.Id == sesion.Id);
+            if (existing != null)
+            {
+                sesionesActivas.Remove(existing);
+                await InvokeAsync(StateHasChanged);
+                NotificationService.Notify(NotificationSeverity.Success, "Sesión finalizada", $"Usuario {sesion.UsuarioNombre} - S/ {sesion.MontoTotal:N2}");
+            }
+        });
+
+        await hubConnection.StartAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection != null)
+        {
+            await hubConnection.DisposeAsync();
+        }
+    }
+}

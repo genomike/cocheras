@@ -1,247 +1,84 @@
 @page "/"
 @using Cochera.Application.DTOs
-@using Cochera.Application.Interfaces
-@using Microsoft.AspNetCore.SignalR.Client
+@using Cochera.Web.Services
 @using Radzen
 @using Radzen.Blazor
-@inject IDashboardService DashboardService
-@inject NavigationManager Navigation
-@implements IAsyncDisposable
+@inject UsuarioActualService UsuarioActualService
+@inject NavigationManager NavigationManager
 @rendermode InteractiveServer
 
-<PageTitle>Dashboard - Cochera</PageTitle>
+<PageTitle>Bienvenido - Sistema de Cochera</PageTitle>
 
-<RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="rz-mb-4">
-    <RadzenIcon Icon="dashboard" /> Dashboard
-</RadzenText>
+<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; text-align: center;">
+    <RadzenIcon Icon="local_parking" Style="font-size: 8rem; color: var(--rz-primary); margin-bottom: 1rem;" />
+    
+    <RadzenText TextStyle="TextStyle.H2" class="rz-mb-2">
+        Sistema de Gestión de Cochera
+    </RadzenText>
+    
+    <RadzenText TextStyle="TextStyle.H5" class="rz-color-secondary rz-mb-4">
+        Prototipo de estacionamiento inteligente con sensores ESP32
+    </RadzenText>
 
-@if (dashboard == null)
-{
-    <RadzenProgressBarCircular ShowValue="true" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Large" />
-}
-else
-{
-    <RadzenRow Gap="1rem" class="rz-mb-4">
-        <RadzenColumn Size="12" SizeMD="3">
-            <RadzenCard class="rz-shadow-3">
-                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
-                    <RadzenIcon Icon="local_parking" Style="font-size: 3rem; color: var(--rz-primary);" />
-                    <div>
-                        <RadzenText TextStyle="TextStyle.Overline" class="rz-mb-0">Estado Cochera</RadzenText>
-                        <RadzenText TextStyle="TextStyle.H4" class="rz-mb-0">
-                            @if (dashboard.EstadoActual.CocheraLlena)
-                            {
-                                <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="LLENO" />
-                            }
-                            else
-                            {
-                                <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="@($"{dashboard.EstadoActual.CajonesLibres} disponible(s)")" />
-                            }
-                        </RadzenText>
-                    </div>
-                </RadzenStack>
-            </RadzenCard>
-        </RadzenColumn>
-        <RadzenColumn Size="12" SizeMD="3">
-            <RadzenCard class="rz-shadow-3">
-                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
-                    <RadzenIcon Icon="receipt" Style="font-size: 3rem; color: var(--rz-success);" />
-                    <div>
-                        <RadzenText TextStyle="TextStyle.Overline" class="rz-mb-0">Sesiones Hoy</RadzenText>
-                        <RadzenText TextStyle="TextStyle.H4" class="rz-mb-0">@dashboard.TotalSesionesHoy</RadzenText>
-                    </div>
-                </RadzenStack>
-            </RadzenCard>
-        </RadzenColumn>
-        <RadzenColumn Size="12" SizeMD="3">
-            <RadzenCard class="rz-shadow-3">
-                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
-                    <RadzenIcon Icon="payments" Style="font-size: 3rem; color: var(--rz-warning);" />
-                    <div>
-                        <RadzenText TextStyle="TextStyle.Overline" class="rz-mb-0">Recaudación Hoy</RadzenText>
-                        <RadzenText TextStyle="TextStyle.H4" class="rz-mb-0">S/ @dashboard.RecaudacionHoy.ToString("N2")</RadzenText>
-                    </div>
-                </RadzenStack>
-            </RadzenCard>
-        </RadzenColumn>
-        <RadzenColumn Size="12" SizeMD="3">
-            <RadzenCard class="rz-shadow-3">
-                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
-                    <RadzenIcon Icon="calendar_month" Style="font-size: 3rem; color: var(--rz-info);" />
-                    <div>
-                        <RadzenText TextStyle="TextStyle.Overline" class="rz-mb-0">Recaudación Mes</RadzenText>
-                        <RadzenText TextStyle="TextStyle.H4" class="rz-mb-0">S/ @dashboard.RecaudacionMes.ToString("N2")</RadzenText>
-                    </div>
-                </RadzenStack>
-            </RadzenCard>
-        </RadzenColumn>
-    </RadzenRow>
+    <RadzenCard class="rz-shadow-4 rz-p-5" Style="max-width: 500px; width: 100%;">
+        <RadzenText TextStyle="TextStyle.H6" class="rz-mb-4">
+            <RadzenIcon Icon="person" /> Seleccione un usuario para comenzar
+        </RadzenText>
+        
+        <RadzenText TextStyle="TextStyle.Body2" class="rz-color-secondary rz-mb-4">
+            Utilice el selector de usuario en el menú lateral izquierdo (parte inferior) para iniciar sesión.
+        </RadzenText>
 
-    <RadzenRow Gap="1rem" class="rz-mb-4">
-        <RadzenColumn Size="12" SizeMD="4">
-            <RadzenCard class="rz-shadow-3">
-                <RadzenText TextStyle="TextStyle.H6" class="rz-mb-2">
-                    <RadzenIcon Icon="garage" /> Estado de Cajones
-                </RadzenText>
-                <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" JustifyContent="JustifyContent.Center">
-                    <div class="cajon @(dashboard.EstadoActual.Cajon1Ocupado ? "ocupado" : "libre")">
-                        <RadzenText TextStyle="TextStyle.H5">Cajón 1</RadzenText>
-                        <RadzenText>@(dashboard.EstadoActual.Cajon1Ocupado ? "🚗 Ocupado" : "✅ Libre")</RadzenText>
-                    </div>
-                    <div class="cajon @(dashboard.EstadoActual.Cajon2Ocupado ? "ocupado" : "libre")">
-                        <RadzenText TextStyle="TextStyle.H5">Cajón 2</RadzenText>
-                        <RadzenText>@(dashboard.EstadoActual.Cajon2Ocupado ? "🚗 Ocupado" : "✅ Libre")</RadzenText>
-                    </div>
-                </RadzenStack>
-            </RadzenCard>
-        </RadzenColumn>
-        <RadzenColumn Size="12" SizeMD="8">
-            <RadzenCard class="rz-shadow-3">
-                <RadzenText TextStyle="TextStyle.H6" class="rz-mb-2">
-                    <RadzenIcon Icon="show_chart" /> Uso por Hora (Hoy)
-                </RadzenText>
-                <RadzenChart>
-                    <RadzenColumnSeries Data="@dashboard.UsoPorHora" CategoryProperty="Hora" ValueProperty="CantidadSesiones" Title="Sesiones" />
-                    <RadzenCategoryAxis>
-                        <RadzenAxisTitle Text="Hora" />
-                    </RadzenCategoryAxis>
-                    <RadzenValueAxis>
-                        <RadzenAxisTitle Text="Sesiones" />
-                    </RadzenValueAxis>
-                </RadzenChart>
-            </RadzenCard>
-        </RadzenColumn>
-    </RadzenRow>
+        <RadzenStack Gap="0.5rem">
+            @foreach (var usuario in usuarios)
+            {
+                <RadzenButton Text="@usuario.Nombre" 
+                    Icon="@(usuario.EsAdmin ? "admin_panel_settings" : "person")"
+                    ButtonStyle="@(usuario.EsAdmin ? ButtonStyle.Warning : ButtonStyle.Primary)" 
+                    Variant="Variant.Outlined"
+                    Style="width: 100%;"
+                    Click="() => SeleccionarUsuario(usuario.Id)" />
+            }
+        </RadzenStack>
+    </RadzenCard>
 
-    <RadzenRow Gap="1rem">
-        <RadzenColumn Size="12" SizeMD="6">
-            <RadzenCard class="rz-shadow-3">
-                <RadzenText TextStyle="TextStyle.H6" class="rz-mb-2">
-                    <RadzenIcon Icon="sensors" /> Últimos Eventos (@dashboard.TotalEventosHoy hoy)
-                </RadzenText>
-                <RadzenDataList Data="@dashboard.UltimosEventos" TItem="EventoSensorDto">
-                    <Template Context="evento">
-                        <RadzenCard Style="margin-bottom: 0.5rem;">
-                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
-                                <div>
-                                    <RadzenBadge BadgeStyle="@GetBadgeStyle(evento.TipoEvento)" Text="@evento.TipoEventoTexto" />
-                                    <RadzenText TextStyle="TextStyle.Body2" class="rz-mb-0">@evento.Detalle</RadzenText>
-                                </div>
-                                <RadzenText TextStyle="TextStyle.Caption">@evento.FechaCreacion.ToString("HH:mm:ss")</RadzenText>
-                            </RadzenStack>
-                        </RadzenCard>
-                    </Template>
-                </RadzenDataList>
-            </RadzenCard>
-        </RadzenColumn>
-        <RadzenColumn Size="12" SizeMD="6">
-            <RadzenCard class="rz-shadow-3">
-                <RadzenText TextStyle="TextStyle.H6" class="rz-mb-2">
-                    <RadzenIcon Icon="directions_car" /> Sesiones Activas
-                </RadzenText>
-                @if (dashboard.SesionesActivas.Any())
-                {
-                    <RadzenDataGrid Data="@dashboard.SesionesActivas" TItem="SesionEstacionamientoDto" AllowPaging="false">
-                        <Columns>
-                            <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="UsuarioNombre" Title="Usuario" />
-                            <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="CajonNumero" Title="Cajón" Width="80px" />
-                            <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="HoraEntrada" Title="Entrada" FormatString="{0:HH:mm}" Width="80px" />
-                            <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="MinutosEstacionado" Title="Min" Width="60px" />
-                            <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Property="MontoTotal" Title="Monto" FormatString="{0:C}" Width="100px" />
-                        </Columns>
-                    </RadzenDataGrid>
-                }
-                else
-                {
-                    <RadzenText TextStyle="TextStyle.Body2" class="rz-color-secondary">No hay sesiones activas</RadzenText>
-                }
-            </RadzenCard>
-        </RadzenColumn>
-    </RadzenRow>
-}
-
-<style>
-    .cajon {
-        padding: 2rem;
-        border-radius: 8px;
-        text-align: center;
-        min-width: 150px;
-    }
-    .cajon.libre {
-        background-color: #e8f5e9;
-        border: 2px solid #4caf50;
-    }
-    .cajon.ocupado {
-        background-color: #ffebee;
-        border: 2px solid #f44336;
-    }
-</style>
+    <RadzenCard class="rz-mt-4 rz-shadow-2" Style="max-width: 600px;">
+        <RadzenText TextStyle="TextStyle.H6" class="rz-mb-2">
+            <RadzenIcon Icon="info" /> Información del Sistema
+        </RadzenText>
+        <RadzenStack Gap="0.5rem">
+            <RadzenText TextStyle="TextStyle.Body2">🔹 <strong>Admin:</strong> Dashboard, reportes, gestión de tarifas y cajones</RadzenText>
+            <RadzenText TextStyle="TextStyle.Body2">🔹 <strong>Usuarios:</strong> Ver disponibilidad, estacionar, pagos e historial</RadzenText>
+            <RadzenText TextStyle="TextStyle.Body2">🔹 <strong>2 Cajones</strong> monitoreados con sensores ultrasónicos</RadzenText>
+            <RadzenText TextStyle="TextStyle.Body2">🔹 <strong>Tarifa:</strong> S/ 8.00 por minuto</RadzenText>
+        </RadzenStack>
+    </RadzenCard>
+</div>
 
 @code {
-    private DashboardDto? dashboard;
-    private HubConnection? hubConnection;
+    private List<UsuarioDto> usuarios = new();
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadDashboard();
-        await SetupSignalR();
-    }
-
-    private async Task LoadDashboard()
-    {
-        dashboard = await DashboardService.GetDashboardAsync();
-    }
-
-    private async Task SetupSignalR()
-    {
-        hubConnection = new HubConnectionBuilder()
-            .WithUrl(Navigation.ToAbsoluteUri("/cocherahub"))
-            .WithAutomaticReconnect()
-            .Build();
-
-        hubConnection.On<EstadoCocheraDto>("RecibirEstado", async (estado) =>
+        usuarios = (await UsuarioActualService.GetTodosUsuariosAsync()).ToList();
+        
+        // Si ya hay usuario logueado, redirigir
+        if (UsuarioActualService.EstaLogueado)
         {
-            if (dashboard != null)
-            {
-                dashboard.EstadoActual = estado;
-                await InvokeAsync(StateHasChanged);
-            }
-        });
-
-        hubConnection.On<EventoSensorDto>("RecibirEvento", async (evento) =>
-        {
-            if (dashboard != null)
-            {
-                dashboard.UltimosEventos.Insert(0, evento);
-                if (dashboard.UltimosEventos.Count > 10)
-                    dashboard.UltimosEventos.RemoveAt(dashboard.UltimosEventos.Count - 1);
-                dashboard.TotalEventosHoy++;
-                await InvokeAsync(StateHasChanged);
-            }
-        });
-
-        await hubConnection.StartAsync();
-    }
-
-    private BadgeStyle GetBadgeStyle(Domain.Enums.TipoEvento tipo)
-    {
-        return tipo switch
-        {
-            Domain.Enums.TipoEvento.CajonOcupado => BadgeStyle.Warning,
-            Domain.Enums.TipoEvento.CajonLiberado => BadgeStyle.Success,
-            Domain.Enums.TipoEvento.MovimientoEntrada => BadgeStyle.Info,
-            Domain.Enums.TipoEvento.MovimientoEntradaBloqueado => BadgeStyle.Danger,
-            Domain.Enums.TipoEvento.CocheraLlena => BadgeStyle.Danger,
-            Domain.Enums.TipoEvento.VehiculoSalio => BadgeStyle.Light,
-            _ => BadgeStyle.Secondary
-        };
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        if (hubConnection != null)
-        {
-            await hubConnection.DisposeAsync();
+            if (UsuarioActualService.EsAdmin)
+                NavigationManager.NavigateTo("/admin/dashboard");
+            else
+                NavigationManager.NavigateTo("/usuario/disponibilidad");
         }
+    }
+
+    private async Task SeleccionarUsuario(int usuarioId)
+    {
+        await UsuarioActualService.CambiarUsuarioAsync(usuarioId);
+        
+        if (UsuarioActualService.EsAdmin)
+            NavigationManager.NavigateTo("/admin/dashboard");
+        else
+            NavigationManager.NavigateTo("/usuario/disponibilidad");
     }
 }

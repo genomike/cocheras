@@ -1,14 +1,23 @@
 @page "/admin/reportes"
 @using Cochera.Application.DTOs
 @using Cochera.Application.Interfaces
+@using Cochera.Web.Services
 @using Radzen
 @using Radzen.Blazor
 @inject IDashboardService DashboardService
 @inject ISesionService SesionService
+@inject UsuarioActualService UsuarioActualService
+@inject NavigationManager Navigation
 @rendermode InteractiveServer
 
 <PageTitle>Reportes - Cochera</PageTitle>
 
+@if (!UsuarioActualService.EsAdmin)
+{
+    <RadzenAlert AlertStyle="AlertStyle.Danger">Acceso denegado. Esta página es solo para administradores.</RadzenAlert>
+}
+else
+{
 <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="rz-mb-4">
     <RadzenIcon Icon="bar_chart" /> Reportes y Estadísticas
 </RadzenText>
@@ -117,6 +126,7 @@
         </RadzenCard>
     </RadzenColumn>
 </RadzenRow>
+}
 
 @code {
     private DateTime fechaDesde = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
@@ -130,6 +140,11 @@
 
     protected override async Task OnInitializedAsync()
     {
+        if (!UsuarioActualService.EsAdmin)
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
         await GenerarReporte();
     }
 

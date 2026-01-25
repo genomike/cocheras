@@ -1,0 +1,160 @@
+@page "/admin/eventos"
+@using Cochera.Application.DTOs
+@using Cochera.Application.Interfaces
+@using Cochera.Web.Services
+@using Cochera.Domain.Enums
+@using Microsoft.AspNetCore.SignalR.Client
+@using Radzen
+@using Radzen.Blazor
+@inject IEventoSensorService EventoService
+@inject UsuarioActualService UsuarioActualService
+@inject NavigationManager Navigation
+@inject NotificationService NotificationService
+@implements IAsyncDisposable
+@rendermode InteractiveServer
+
+<PageTitle>Eventos de Sensores - Admin</PageTitle>
+
+@if (!UsuarioActualService.EsAdmin)
+{
+    <RadzenAlert AlertStyle="AlertStyle.Danger">Acceso denegado. Esta página es solo para administradores.</RadzenAlert>
+}
+else
+{
+    <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="rz-mb-4">
+        <RadzenIcon Icon="sensors" /> Eventos de Sensores
+    </RadzenText>
+
+    <RadzenRow Gap="1rem" class="rz-mb-4">
+        <RadzenColumn Size="12" SizeMD="3">
+            <RadzenCard class="rz-shadow-2">
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
+                    <RadzenIcon Icon="event" Style="font-size: 2rem; color: var(--rz-primary);" />
+                    <div>
+                        <RadzenText TextStyle="TextStyle.Caption">Total Eventos Hoy</RadzenText>
+                        <RadzenText TextStyle="TextStyle.H5">@totalEventosHoy</RadzenText>
+                    </div>
+                </RadzenStack>
+            </RadzenCard>
+        </RadzenColumn>
+        <RadzenColumn Size="12" SizeMD="9">
+            <RadzenButton Icon="refresh" Text="Actualizar" Click="@LoadEventos" />
+        </RadzenColumn>
+    </RadzenRow>
+
+    <RadzenCard class="rz-shadow-3">
+        <RadzenDataGrid Data="@eventos" TItem="EventoSensorDto" AllowPaging="true" PageSize="20" 
+            AllowSorting="true" AllowFiltering="true" FilterMode="FilterMode.Simple">
+            <Columns>
+                <RadzenDataGridColumn TItem="EventoSensorDto" Property="Id" Title="ID" Width="60px" />
+                <RadzenDataGridColumn TItem="EventoSensorDto" Property="FechaCreacion" Title="Fecha/Hora" FormatString="{0:dd/MM/yyyy HH:mm:ss}" Width="160px" />
+                <RadzenDataGridColumn TItem="EventoSensorDto" Property="TipoEventoTexto" Title="Tipo" Width="150px">
+                    <Template Context="evento">
+                        <RadzenBadge BadgeStyle="@GetBadgeStyle(evento.TipoEvento)" Text="@evento.TipoEventoTexto" />
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="EventoSensorDto" Property="Detalle" Title="Detalle" />
+                <RadzenDataGridColumn TItem="EventoSensorDto" Property="EstadoCajon1" Title="Cajón 1" Width="80px" TextAlign="TextAlign.Center">
+                    <Template Context="evento">
+                        @if (evento.EstadoCajon1 == "ocupado")
+                        {
+                            <RadzenIcon Icon="directions_car" Style="color: var(--rz-danger);" />
+                        }
+                        else
+                        {
+                            <RadzenIcon Icon="check_circle" Style="color: var(--rz-success);" />
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="EventoSensorDto" Property="EstadoCajon2" Title="Cajón 2" Width="80px" TextAlign="TextAlign.Center">
+                    <Template Context="evento">
+                        @if (evento.EstadoCajon2 == "ocupado")
+                        {
+                            <RadzenIcon Icon="directions_car" Style="color: var(--rz-danger);" />
+                        }
+                        else
+                        {
+                            <RadzenIcon Icon="check_circle" Style="color: var(--rz-success);" />
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+                <RadzenDataGridColumn TItem="EventoSensorDto" Property="CocheraLlena" Title="Llena" Width="70px" TextAlign="TextAlign.Center">
+                    <Template Context="evento">
+                        @if (evento.CocheraLlena)
+                        {
+                            <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="Sí" />
+                        }
+                        else
+                        {
+                            <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="No" />
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+    </RadzenCard>
+}
+
+@code {
+    private List<EventoSensorDto> eventos = new();
+    private int totalEventosHoy;
+    private HubConnection? hubConnection;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!UsuarioActualService.EsAdmin)
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+        
+        await LoadEventos();
+        await SetupSignalR();
+    }
+
+    private async Task LoadEventos()
+    {
+        eventos = (await EventoService.GetUltimosEventosAsync(200)).OrderByDescending(e => e.FechaCreacion).ToList();
+        totalEventosHoy = eventos.Count(e => e.FechaCreacion.Date == DateTime.Today);
+    }
+
+    private async Task SetupSignalR()
+    {
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/cocherahub"))
+            .WithAutomaticReconnect()
+            .Build();
+
+        hubConnection.On<EventoSensorDto>("RecibirEvento", async (evento) =>
+        {
+            eventos.Insert(0, evento);
+            totalEventosHoy++;
+            await InvokeAsync(StateHasChanged);
+            NotificationService.Notify(NotificationSeverity.Info, "Nuevo evento", evento.Detalle);
+        });
+
+        await hubConnection.StartAsync();
+    }
+
+    private BadgeStyle GetBadgeStyle(TipoEvento tipo)
+    {
+        return tipo switch
+        {
+            TipoEvento.CajonOcupado => BadgeStyle.Warning,
+            TipoEvento.CajonLiberado => BadgeStyle.Success,
+            TipoEvento.MovimientoEntrada => BadgeStyle.Info,
+            TipoEvento.MovimientoEntradaBloqueado => BadgeStyle.Danger,
+            TipoEvento.CocheraLlena => BadgeStyle.Danger,
+            TipoEvento.VehiculoSalio => BadgeStyle.Light,
+            _ => BadgeStyle.Secondary
+        };
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection != null)
+        {
+            await hubConnection.DisposeAsync();
+        }
+    }
+}

@@ -1,14 +1,23 @@
 @page "/admin/tarifas"
 @using Cochera.Application.DTOs
 @using Cochera.Application.Interfaces
+@using Cochera.Web.Services
 @using Radzen
 @using Radzen.Blazor
 @inject ITarifaService TarifaService
 @inject NotificationService NotificationService
+@inject UsuarioActualService UsuarioActualService
+@inject NavigationManager Navigation
 @rendermode InteractiveServer
 
 <PageTitle>Administración de Tarifas - Cochera</PageTitle>
 
+@if (!UsuarioActualService.EsAdmin)
+{
+    <RadzenAlert AlertStyle="AlertStyle.Danger">Acceso denegado. Esta página es solo para administradores.</RadzenAlert>
+}
+else
+{
 <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="rz-mb-4">
     <RadzenIcon Icon="attach_money" /> Administración de Tarifas
 </RadzenText>
@@ -89,6 +98,7 @@
         </RadzenCard>
     </RadzenColumn>
 </RadzenRow>
+}
 
 @code {
     private TarifaDto? tarifaActual;
@@ -99,6 +109,11 @@
 
     protected override async Task OnInitializedAsync()
     {
+        if (!UsuarioActualService.EsAdmin)
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
         await CargarDatos();
     }
 

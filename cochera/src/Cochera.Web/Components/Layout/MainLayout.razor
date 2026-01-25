@@ -1,27 +1,68 @@
 @inherits LayoutComponentBase
 @using Radzen
 @using Radzen.Blazor
+@using Cochera.Application.DTOs
+@using Cochera.Web.Services
+@inject UsuarioActualService UsuarioActualService
+@inject NavigationManager NavigationManager
 
 <RadzenLayout>
     <RadzenHeader>
-        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0">
+        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0" Style="width: 100%;">
             <RadzenSidebarToggle Click="@(() => sidebarExpanded = !sidebarExpanded)" />
             <RadzenLabel Text="🅿️ Sistema de Cochera" Style="font-size: 1.5rem; font-weight: bold; margin-left: 12px;" />
+            <div style="flex-grow: 1;"></div>
+            @if (UsuarioActualService.EstaLogueado)
+            {
+                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem" Style="margin-right: 1rem;">
+                    <RadzenIcon Icon="@(UsuarioActualService.EsAdmin ? "admin_panel_settings" : "person")" />
+                    <RadzenText TextStyle="TextStyle.Body1" Style="color: white;">
+                        @UsuarioActualService.UsuarioActual?.Nombre
+                        @if (UsuarioActualService.EsAdmin)
+                        {
+                            <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="Admin" Style="margin-left: 8px;" />
+                        }
+                    </RadzenText>
+                </RadzenStack>
+            }
         </RadzenStack>
     </RadzenHeader>
     <RadzenSidebar @bind-Expanded="@sidebarExpanded">
         <RadzenPanelMenu>
-            <RadzenPanelMenuItem Text="Dashboard" Icon="dashboard" Path="/" />
-            <RadzenPanelMenuItem Text="Estacionar" Icon="local_parking" Path="/estacionar" />
-            <RadzenPanelMenuItem Text="Historial Sesiones" Icon="history" Path="/sesiones" />
-            <RadzenPanelMenuItem Text="Eventos Sensores" Icon="sensors" Path="/eventos" />
-            <RadzenPanelMenuItem Text="Administración" Icon="admin_panel_settings" Expanded="false">
-                <RadzenPanelMenuItem Text="Tarifas" Icon="attach_money" Path="/admin/tarifas" />
+            @if (!UsuarioActualService.EstaLogueado)
+            {
+                <!-- Sin usuario seleccionado -->
+                <RadzenPanelMenuItem Text="Bienvenido" Icon="home" Path="/" />
+            }
+            else if (UsuarioActualService.EsAdmin)
+            {
+                <!-- Menú de Administrador -->
+                <RadzenPanelMenuItem Text="Dashboard" Icon="dashboard" Path="/admin/dashboard" />
+                <RadzenPanelMenuItem Text="Sesiones Activas" Icon="local_parking" Path="/admin/sesiones" />
+                <RadzenPanelMenuItem Text="Historial Sesiones" Icon="history" Path="/admin/historial" />
+                <RadzenPanelMenuItem Text="Eventos Sensores" Icon="sensors" Path="/admin/eventos" />
+                <RadzenPanelMenuItem Text="Gestión" Icon="settings" Expanded="true">
+                    <RadzenPanelMenuItem Text="Tarifas" Icon="attach_money" Path="/admin/tarifas" />
+                    <RadzenPanelMenuItem Text="Cajones" Icon="garage" Path="/admin/cajones" />
+                </RadzenPanelMenuItem>
                 <RadzenPanelMenuItem Text="Reportes" Icon="bar_chart" Path="/admin/reportes" />
-            </RadzenPanelMenuItem>
+            }
+            else
+            {
+                <!-- Menú de Usuario Normal -->
+                <RadzenPanelMenuItem Text="Disponibilidad" Icon="local_parking" Path="/usuario/disponibilidad" />
+                <RadzenPanelMenuItem Text="Mi Estacionamiento" Icon="directions_car" Path="/usuario/estacionamiento" />
+                <RadzenPanelMenuItem Text="Mis Pagos" Icon="payment" Path="/usuario/pagos" />
+                <RadzenPanelMenuItem Text="Mi Historial" Icon="history" Path="/usuario/historial" />
+            }
         </RadzenPanelMenu>
+        
+        <!-- Selector de Usuario en la parte inferior -->
+        <div style="position: absolute; bottom: 0; left: 0; right: 0;">
+            <UserSelector />
+        </div>
     </RadzenSidebar>
-    <RadzenBody>
+    <RadzenBody Style="padding-bottom: 100px;">
         <div class="rz-p-4">
             @Body
         </div>
@@ -34,4 +75,19 @@
 
 @code {
     bool sidebarExpanded = true;
+
+    protected override void OnInitialized()
+    {
+        UsuarioActualService.OnUsuarioCambiado += OnUsuarioCambiadoHandler;
+    }
+
+    private void OnUsuarioCambiadoHandler()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        UsuarioActualService.OnUsuarioCambiado -= OnUsuarioCambiadoHandler;
+    }
 }
