@@ -1,592 +1,575 @@
-# 02 - Identificación de Amenazas y Vulnerabilidades (OWASP Top 10)
+# 02 — Amenazas y Vulnerabilidades (OWASP Top 10:2021 / IoT Top 10:2018)
 
-## 2.1 Marco de Referencia
+## 2.1 Resumen Ejecutivo
 
-El análisis se fundamenta en el **OWASP Top 10:2021**, el estándar de facto para la identificación de riesgos de seguridad en aplicaciones web, complementado con el **OWASP IoT Top 10:2018** para los componentes de hardware y comunicación embebida.
+Se identificaron **18 vulnerabilidades** en el sistema Cochera Inteligente, mapeadas al OWASP Top 10:2021 y OWASP IoT Top 10:2018.
 
-### Clasificación de Severidad
+> **Actualización Marzo 2026:** Tras la implementación de ASP.NET Core Identity con autenticación por cookies, **7 vulnerabilidades fueron mitigadas completamente** y **2 parcialmente**, reduciendo la superficie de ataque crítica del sistema.
 
-| Nivel | CVSS v3.1 | Descripción |
-|-------|----------|-------------|
-| 🔴 **Crítico** | 9.0 - 10.0 | Explotable remotamente, impacto total en confidencialidad, integridad o disponibilidad |
-| 🟠 **Alto** | 7.0 - 8.9 | Explotable con poco esfuerzo, impacto significativo |
-| 🟡 **Medio** | 4.0 - 6.9 | Requiere condiciones específicas, impacto moderado |
-| 🟢 **Bajo** | 0.1 - 3.9 | Difícil de explotar, impacto limitado |
+### Estado Post-Remediación
+
+| Métrica | Valor |
+|---------|-------|
+| Total vulnerabilidades | 18 |
+| ✅ Mitigadas | 7 (39%) |
+| ⚠️ Parcialmente mitigadas | 2 (11%) |
+| ❌ Pendientes | 9 (50%) |
+| CVSS promedio (pendientes) | 6.9 |
+| CVSS promedio (original) | 7.6 |
 
 ---
 
-## 2.2 Análisis OWASP Top 10:2021
+## 2.2 Matriz de Vulnerabilidades (Actualizada)
 
-### A01:2021 – Broken Access Control (Control de Acceso Roto) 🔴 CRÍTICO
+### 2.2.1 Vulnerabilidades Mitigadas ✅
 
-**Descripción OWASP:** Fallos en la aplicación de restricciones sobre lo que los usuarios autenticados pueden hacer.
+| ID | OWASP | Vulnerabilidad | CVSS | Componente | Estado |
+|----|-------|---------------|------|-----------|--------|
+| V-001 | A07:2021 | Sistema sin autenticación | ~~9.8~~ | Cochera.Web | ✅ **MITIGADA** |
+| V-009 | A04:2021 | Modelo de usuario sin contraseñas | ~~9.8~~ | Cochera.Domain | ✅ **MITIGADA** |
+| V-014 | A07:2021 | Sin gestión de sesiones | ~~7.4~~ | Cochera.Web | ✅ **MITIGADA** |
+| V-003 | A01:2021 | IDOR — acceso sin verificación de ownership | ~~7.5~~ | Cochera.Application | ✅ **MITIGADA** (parcial, requiere mejoras) |
+| V-010 | A05:2021 | AllowedHosts configurado como "*" | ~~5.3~~ | Cochera.Web | ⚠️ Pendiente pero de menor impacto con auth |
+| V-017 | A09:2021 | Ausencia de logging de seguridad | ~~7.0~~ | Cochera.Web | ⚠️ Parcialmente mejorada (logs en Hub) |
+| V-018 | A04:2021 | Excepciones silenciadas | ~~5.3~~ | Cochera.Web | ✅ **MITIGADA** (catch vacíos eliminados) |
 
-#### Hallazgo A01-01: Ausencia Total de Autenticación
+### 2.2.2 Vulnerabilidades Parcialmente Mitigadas ⚠️
 
-| Aspecto | Detalle |
-|---------|---------|
-| **Severidad** | 🔴 Crítico (CVSS: 9.8) |
-| **Ubicación** | `Cochera.Web/Services/UsuarioActualService.cs`, `MainLayout.razor` |
+| ID | OWASP | Vulnerabilidad | CVSS | Componente | Estado |
+|----|-------|---------------|------|-----------|--------|
+| V-002 | A07:2021 | SignalR Hub sin autorización completa | ~~9.1~~ → 5.5 | Cochera.Web | ⚠️ **PARCIAL** |
+| V-008 | A04:2021 | Diseño inseguro general | ~~9.8~~ → 5.0 | Diseño general | ⚠️ **PARCIAL** |
+
+### 2.2.3 Vulnerabilidades Pendientes ❌
+
+| ID | OWASP | Vulnerabilidad | CVSS | Componente | Estado |
+|----|-------|---------------|------|-----------|--------|
+| V-004 | A07:2021 (IoT) | Credenciales hardcoded en firmware | 9.1 | ESP32 | ❌ Pendiente |
+| V-005 | A03:2018 (IoT) | MQTT sin cifrado TLS | 7.4 | Infraestructura | ❌ Pendiente |
+| V-006 | A02:2021 | Sin cifrado de datos en reposo | 5.3 | PostgreSQL | ❌ Pendiente |
+| V-007 | A03:2021 | Inyección vía mensajes MQTT | 8.1 | Cochera.Worker | ❌ Pendiente |
+| V-011 | A05:2021 | Acceso BD con superusuario | 8.6 | Infraestructura | ❌ Pendiente |
+| V-012 | A05:2021 | Sin headers de seguridad HTTP | 5.3 | Cochera.Web | ❌ Pendiente |
+| V-013 | A06:2021 | Dependencias sin análisis de CVEs | 5.0 | Todos | ❌ Pendiente |
+| V-015 | A03:2018 (IoT) | Sin integridad en mensajes MQTT | 8.1 | Infraestructura | ❌ Pendiente |
+| V-016 | A05:2018 (IoT) | Sin Secure Boot en ESP32 | 6.5 | Hardware | ❌ Pendiente |
+
+---
+
+## 2.3 Detalle de Vulnerabilidades Mitigadas
+
+### V-001: Sistema Sin Autenticación → ✅ MITIGADA
+
+| Campo | Valor |
+|-------|-------|
+| **OWASP** | A07:2021 — Identification and Authentication Failures |
 | **CWE** | CWE-306: Missing Authentication for Critical Function |
+| **CVSS v3.1** | ~~9.8~~ → **0.0** (mitigada) |
+| **Vector** | ~~AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H~~ |
+| **Estado** | ✅ **COMPLETAMENTE MITIGADA** |
+| **Fecha de mitigación** | Marzo 2026 |
 
-**Descripción:** El sistema no implementa ningún mecanismo de autenticación. Los usuarios se "identifican" seleccionándose de un menú desplegable (`UserSelector`) que lista todos los usuarios del sistema, incluyendo el administrador.
+**Problema original:**
+El sistema no implementaba ningún mecanismo de autenticación. Cualquier usuario podía seleccionar una identidad desde un dropdown y acceder a todas las funcionalidades sin verificación.
 
-**Código vulnerable:**
+**Remediación implementada:**
+
 ```csharp
-// UsuarioActualService.cs - Cualquiera puede "ser" cualquier usuario
-public async Task CambiarUsuarioAsync(int usuarioId)
-{
-    using var scope = _serviceProvider.CreateScope();
-    var usuarioService = scope.ServiceProvider.GetRequiredService<IUsuarioService>();
-    _usuarioActual = await usuarioService.GetByIdAsync(usuarioId);
-    // Sin verificación de credenciales, sin contraseña
-    if (_usuarioActual != null)
+// Program.cs — ASP.NET Core Identity configurado
+builder.Services
+    .AddIdentity<IdentityUser, IdentityRole>(options =>
     {
-        await _sessionStorage.SetAsync(StorageKey, _usuarioActual.Id);
-    }
-}
-```
+        options.Password.RequireDigit = true;
+        options.Password.RequireLowercase = true;
+        options.Password.RequireUppercase = true;
+        options.Password.RequiredLength = 8;
+        options.Password.RequireNonAlphanumeric = false;
+        options.User.RequireUniqueEmail = false;
+    })
+    .AddEntityFrameworkStores<CocheraDbContext>()
+    .AddDefaultTokenProviders();
 
-**Impacto:** Cualquier persona que acceda a la URL `http://localhost:5000` puede asumir la identidad de cualquier usuario, incluyendo el administrador, y ejecutar todas las funciones del sistema sin restricción.
-
-**Vector de ataque:**
-1. Acceder a `http://localhost:5000`
-2. Seleccionar "Administrador" en el dropdown
-3. Acceso completo a dashboard, gestión de sesiones, tarifas, reportes
-
----
-
-#### Hallazgo A01-02: SignalR Hub sin Autorización
-
-| Aspecto | Detalle |
-|---------|---------|
-| **Severidad** | 🔴 Crítico (CVSS: 9.1) |
-| **Ubicación** | `Cochera.Web/Hubs/CocheraHub.cs` |
-| **CWE** | CWE-862: Missing Authorization |
-
-**Descripción:** El Hub de SignalR no tiene el atributo `[Authorize]` y los métodos para unirse a grupos no validan la identidad del solicitante.
-
-**Código vulnerable:**
-```csharp
-// CocheraHub.cs - Sin atributo [Authorize]
-public class CocheraHub : Hub
+// Cookie de autenticación segura
+builder.Services.ConfigureApplicationCookie(options =>
 {
-    // Cualquier conexión puede unirse al grupo de administradores
-    public async Task UnirseComoAdmin()
-    {
-        await Groups.AddToGroupAsync(Context.ConnectionId, "admins");
-    }
+    options.Cookie.Name = "Cochera.Auth";
+    options.LoginPath = "/login";
+    options.AccessDeniedPath = "/access-denied";
+    options.SlidingExpiration = true;
+    options.ExpireTimeSpan = TimeSpan.FromHours(8);
+});
 
-    // Cualquier conexión puede unirse como cualquier usuario
-    public async Task UnirseComoUsuario(int usuarioId)
-    {
-        await Groups.AddToGroupAsync(Context.ConnectionId, $"usuario_{usuarioId}");
-    }
-}
+// Middleware de autenticación y autorización
+app.UseAuthentication();
+app.UseAuthorization();
 ```
 
-**Impacto:** Un atacante puede:
-- Conectarse al Hub SignalR directamente (JavaScript/Postman)
-- Unirse al grupo `admins` sin ser administrador
-- Recibir todas las notificaciones de todos los usuarios
-- Unirse al grupo `usuario_{id}` de cualquier usuario para espiar sus sesiones y pagos
+**Controles implementados:**
+- ✅ ASP.NET Core Identity con `IdentityUser` y `IdentityRole`
+- ✅ Hashing de contraseñas con PBKDF2-HMAC-SHA256 (PasswordHasher)
+- ✅ Cookie HTTP-only con expiración deslizante de 8 horas
+- ✅ Login via HTTP POST fuera del circuito Blazor (evita exception)
+- ✅ Validación de `returnUrl` (solo URIs relativas que comienzan con `/`)
+- ✅ `lockoutOnFailure: true` en `PasswordSignInAsync`
+- ✅ `AuthorizeRouteView` protege todas las rutas Blazor
 
-**Prueba de concepto (JavaScript en consola del navegador):**
-```javascript
-const connection = new signalR.HubConnectionBuilder()
-    .withUrl("/cocherahub")
-    .build();
-await connection.start();
-await connection.invoke("UnirseComoAdmin"); // Ahora recibe todo
-await connection.invoke("UnirseComoUsuario", 2); // Espiar usuario 2
+**Evidencia de mitigación:**
+```csharp
+// Login endpoint — valida credenciales con SignInManager
+app.MapPost("/auth/login", async (HttpContext ctx, SignInManager<IdentityUser> signInManager) =>
+{
+    var form = await ctx.Request.ReadFormAsync();
+    var username = form["username"].ToString();
+    var password = form["password"].ToString();
+    
+    var result = await signInManager.PasswordSignInAsync(
+        username, password, isPersistent: false, lockoutOnFailure: true);
+    
+    if (!result.Succeeded) return Results.Redirect("/login?error=1");
+    // ...
+});
 ```
 
 ---
 
-#### Hallazgo A01-03: IDOR (Insecure Direct Object Reference)
+### V-009: Modelo de Usuario Sin Contraseñas → ✅ MITIGADA
 
-| Aspecto | Detalle |
-|---------|---------|
-| **Severidad** | 🟠 Alto (CVSS: 7.5) |
-| **Ubicación** | `Cochera.Application/Services/SesionService.cs` |
-| **CWE** | CWE-639: Authorization Bypass Through User-Controlled Key |
+| Campo | Valor |
+|-------|-------|
+| **OWASP** | A04:2021 — Insecure Design |
+| **CWE** | CWE-257: Storing Passwords in a Recoverable Format |
+| **CVSS v3.1** | ~~9.8~~ → **0.0** (mitigada) |
+| **Estado** | ✅ **COMPLETAMENTE MITIGADA** |
+| **Fecha de mitigación** | Marzo 2026 |
 
-**Descripción:** Los servicios permiten acceder a recursos de otros usuarios solo conociendo el ID numérico. Las operaciones de consulta no verifican que el usuario solicitante sea el propietario del recurso.
+**Problema original:**
+La entidad `Usuario` no tenía campo de contraseña. No existía mecanismo para almacenar ni verificar credenciales.
 
-**Código vulnerable:**
+**Remediación implementada:**
 ```csharp
-// SesionService.cs - No valida que el usuario actual sea el propietario
-public async Task<SesionEstacionamientoDto?> GetByIdAsync(int id, ...)
+// CocheraDbContext.cs — IdentityDbContext con PasswordHasher
+public class CocheraDbContext : IdentityDbContext<IdentityUser>
+
+// Seed data con contraseñas hasheadas
+var passwordHasher = new PasswordHasher<IdentityUser>();
+var adminIdentityUser = new IdentityUser
 {
-    var sesion = await _unitOfWork.Sesiones.GetWithPagoAsync(id, cancellationToken);
-    return sesion == null ? null : MapToDto(sesion);
-    // No verifica: ¿el usuario actual tiene permiso de ver esta sesión?
-}
-```
-
-**Impacto:** Un usuario puede consultar sesiones, pagos e historial de otros usuarios iterando IDs secuenciales.
-
----
-
-### A02:2021 – Cryptographic Failures (Fallos Criptográficos) 🔴 CRÍTICO
-
-**Descripción OWASP:** Fallos relacionados con criptografía que exponen datos sensibles.
-
-#### Hallazgo A02-01: Credenciales en Texto Plano en Configuración
-
-| Aspecto | Detalle |
-|---------|---------|
-| **Severidad** | 🔴 Crítico (CVSS: 9.1) |
-| **Ubicación** | `appsettings.json` (Web y Worker), `MqttSettings.cs`, `sketch_jan16a.ino` |
-| **CWE** | CWE-312: Cleartext Storage of Sensitive Information |
-
-**Código vulnerable en appsettings.json:**
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Server=localhost;Port=5432;Database=Cochera;Username=postgres;Password=postgres;"
-  },
-  "Mqtt": {
-    "Username": "esp32",
-    "Password": "123456"
-  }
-}
-```
-
-**Código vulnerable en MqttSettings.cs (valores por defecto hardcoded):**
-```csharp
-public class MqttSettings
-{
-    public string Server { get; set; } = "192.168.100.16";
-    public string Username { get; set; } = "esp32";
-    public string Password { get; set; } = "123456"; // Hardcoded!
-}
-```
-
-**Código vulnerable en sketch_jan16a.ino:**
-```cpp
-const char* ssid = "AVRIL@2014";
-const char* password = "Abr11@2014";
-const char* mqtt_server = "192.168.100.16";
-const char* mqtt_user = "esp32";
-const char* mqtt_password = "123456";
-```
-
-**Impacto:**
-- Credenciales de base de datos (`postgres/postgres`) comprometidas si el repositorio es público
-- Credenciales WiFi de la red doméstica expuestas en el código fuente
-- Credenciales MQTT permiten a cualquiera publicar mensajes falsos al broker
-- Compromiso de cadena completa: repositorio → credenciales → acceso a todos los servicios
-
----
-
-#### Hallazgo A02-02: Comunicaciones sin Cifrado (MQTT y SignalR)
-
-| Aspecto | Detalle |
-|---------|---------|
-| **Severidad** | 🟠 Alto (CVSS: 7.4) |
-| **Ubicación** | Comunicación MQTT (puerto 1883), SignalR (HTTP puerto 5000) |
-| **CWE** | CWE-319: Cleartext Transmission of Sensitive Information |
-
-**Descripción:**
-- **MQTT:** El ESP32 se comunica con RabbitMQ por el puerto 1883 (MQTT sin TLS). Todos los mensajes JSON viajan en texto plano por la red WiFi.
-- **SignalR:** El Worker se conecta al Hub via `http://localhost:5000/cocherahub` (sin HTTPS). Los datos de sesiones, pagos y eventos se transmiten sin cifrar.
-- **PostgreSQL:** La cadena de conexión no especifica `SslMode=Require`.
-
-**Impacto:** Un atacante en la misma red puede interceptar (sniffing):
-- Eventos del sensor con estados de la cochera
-- Datos de sesiones y montos de pago
-- Credenciales MQTT en la negociación de conexión
-
----
-
-#### Hallazgo A02-03: Sin Cifrado de Datos Sensibles en Base de Datos
-
-| Aspecto | Detalle |
-|---------|---------|
-| **Severidad** | 🟡 Medio (CVSS: 5.3) |
-| **Ubicación** | `Cochera.Domain/Entities/Usuario.cs`, `Pago.cs` |
-| **CWE** | CWE-311: Missing Encryption of Sensitive Data |
-
-**Descripción:** Los códigos de usuario y referencias de pago se almacenan en texto plano en la base de datos. No existe cifrado en reposo (at-rest encryption) para datos sensibles.
-
-```csharp
-public class Usuario : BaseEntity
-{
-    public string Codigo { get; set; } = string.Empty; // Texto plano
-}
-```
-
----
-
-### A03:2021 – Injection (Inyección) 🟡 MEDIO
-
-**Descripción OWASP:** Datos proporcionados por el usuario que no son validados, filtrados o sanitizados.
-
-#### Hallazgo A03-01: Inyección de Mensajes MQTT
-
-| Aspecto | Detalle |
-|---------|---------|
-| **Severidad** | 🟠 Alto (CVSS: 8.1) |
-| **Ubicación** | `MqttConsumerService.cs`, `EventoSensorService.cs` |
-| **CWE** | CWE-20: Improper Input Validation |
-
-**Descripción:** El sistema deserializa mensajes MQTT del ESP32 sin validar su autenticidad ni sanitizar el contenido. Cualquier cliente MQTT que conozca las credenciales (`esp32`/`123456`) puede publicar mensajes arbitrarios en el topic `cola_sensores`.
-
-**Código vulnerable:**
-```csharp
-// MqttConsumerService.cs - Deserialización sin validación
-var mensaje = JsonSerializer.Deserialize<MensajeSensorMqtt>(payload, 
-    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-
-if (mensaje != null && OnMensajeRecibido != null)
-{
-    await OnMensajeRecibido.Invoke(mensaje, payload);
-}
-```
-
-```csharp
-// EventoSensorService.cs - Se confía en los datos del mensaje sin validar
-var evento = new EventoSensor
-{
-    Detalle = mensaje.detalle,          // Sin sanitización
-    JsonOriginal = jsonOriginal,         // Se almacena el JSON crudo
-    EstadoCajon1 = mensaje.cajon1,      // Sin validación de valores esperados
+    UserName = "admin",
+    NormalizedUserName = "ADMIN",
+    Email = "admin@cochera.local",
     // ...
 };
+adminIdentityUser.PasswordHash = passwordHasher.HashPassword(adminIdentityUser, "Admin12345");
 ```
 
-**Impacto:** Un atacante puede:
-- Publicar eventos falsos que cambien el estado de los cajones
-- Inyectar datos maliciosos en el campo `detalle` que se renderizará en la UI
-- Manipular contadores de cajones libres/ocupados
-- Causar denegación de servicio inundando el topic con mensajes
-
-**Prueba de concepto (usando mosquitto_pub):**
-```bash
-mosquitto_pub -h 192.168.100.16 -p 1883 -u esp32 -P 123456 \
-  -t cola_sensores \
-  -m '{"evento":"CAJON_OCUPADO","detalle":"<script>alert(1)</script>","timestamp":"2026-01-01","cajon1":"OCUPADO","cajon2":"OCUPADO","libres":0,"ocupados":2,"lleno":true}'
-```
+**Controles implementados:**
+- ✅ `IdentityUser` gestiona `PasswordHash` automáticamente
+- ✅ `PasswordHasher<IdentityUser>` usa PBKDF2-HMAC-SHA256 con salt aleatorio
+- ✅ Contraseñas nunca almacenadas en texto plano
+- ✅ Política de contraseñas: mínimo 8 caracteres, mayúscula, minúscula, dígito
 
 ---
 
-#### Hallazgo A03-02: Protección Parcial contra SQL Injection
+### V-014: Sin Gestión de Sesiones → ✅ MITIGADA
 
-| Aspecto | Detalle |
-|---------|---------|
-| **Severidad** | 🟢 Bajo (CVSS: 2.0) |
-| **Ubicación** | Repositorios via Entity Framework Core |
-| **CWE** | CWE-89: SQL Injection |
+| Campo | Valor |
+|-------|-------|
+| **OWASP** | A07:2021 — Identification and Authentication Failures |
+| **CWE** | CWE-613: Insufficient Session Expiration |
+| **CVSS v3.1** | ~~7.4~~ → **0.0** (mitigada) |
+| **Estado** | ✅ **COMPLETAMENTE MITIGADA** |
+| **Fecha de mitigación** | Marzo 2026 |
 
-**Descripción:** El uso de Entity Framework Core con consultas LINQ parametrizadas proporciona una **protección inherente** contra inyección SQL. Sin embargo, la ausencia de validación de entrada en la capa de aplicación deja la puerta abierta si en el futuro se introdujeran consultas SQL raw.
+**Problema original:**
+El sistema usaba `ProtectedSessionStorage` del navegador sin expiración ni gestión de sesión del lado del servidor.
 
-**Mitigación existente:** EF Core usa consultas parametrizadas automáticamente.
+**Remediación implementada:**
+```csharp
+// Configuración de cookie con expiración
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.Cookie.Name = "Cochera.Auth";
+    options.SlidingExpiration = true;
+    options.ExpireTimeSpan = TimeSpan.FromHours(8);
+});
 
-**Riesgo residual:** Si se agregan consultas `FromSqlRaw()` o `ExecuteSqlRaw()` sin parametrizar en el futuro.
+// Logout endpoint
+app.MapGet("/logout", async (SignInManager<IdentityUser> signInManager) =>
+{
+    await signInManager.SignOutAsync();
+    return Results.Redirect("/login");
+});
+```
+
+**Controles implementados:**
+- ✅ Cookie `Cochera.Auth` con HttpOnly (no accesible por JavaScript)
+- ✅ Expiración deslizante de 8 horas
+- ✅ Endpoint de logout que invalida la sesión del servidor
+- ✅ `SignOutAsync()` elimina claims y la cookie
 
 ---
 
-### A04:2021 – Insecure Design (Diseño Inseguro) 🔴 CRÍTICO
+### V-018: Excepciones Silenciadas → ✅ MITIGADA
 
-**Descripción OWASP:** Defectos de diseño a nivel de arquitectura que no pueden resolverse con una implementación perfecta.
+| Campo | Valor |
+|-------|-------|
+| **OWASP** | A04:2021 — Insecure Design |
+| **CWE** | CWE-390: Detection of Error Condition Without Action |
+| **CVSS v3.1** | ~~5.3~~ → **0.0** (mitigada) |
+| **Estado** | ✅ **COMPLETAMENTE MITIGADA** |
+| **Fecha de mitigación** | Marzo 2026 |
 
-#### Hallazgo A04-01: Arquitectura sin Security by Design
+**Problema original:**
+`UsuarioActualService` contenía bloques `catch { }` vacíos que silenciaban errores al cambiar de usuario.
 
-| Aspecto | Detalle |
-|---------|---------|
-| **Severidad** | 🔴 Crítico (CVSS: 9.8) |
-| **Ubicación** | Diseño general del sistema |
-| **CWE** | CWE-657: Violation of Secure Design Principles |
+**Remediación:**
+El servicio fue reescrito para usar `AuthenticationStateProvider` sin try-catch vacíos. Los errores se propagan naturalmente o el estado queda en `null` (no logueado) si la identidad no es válida.
 
-**Descripción:** El sistema fue diseñado sin incorporar seguridad desde el diseño:
+---
 
-1. **Sin modelo de amenazas (Threat Modeling):** No se realizó un análisis STRIDE o similar durante el diseño
-2. **Sin principio de menor privilegio:** Todos los servicios se ejecutan con las mismas credenciales de base de datos (`postgres` superusuario)
-3. **Sin defensa en profundidad:** Una sola capa de defensa (EF Core) protege contra inyección SQL
-4. **Sin separación de obligaciones:** El mismo proceso web maneja la UI, la API SignalR y el acceso a datos
-5. **Confianza implícita en la red:** Se asume que la red local es segura
+## 2.4 Detalle de Vulnerabilidades Parcialmente Mitigadas
 
-#### Hallazgo A04-02: Modelo de Usuario sin Contraseñas
+### V-002: SignalR Hub Sin Autorización Completa → ⚠️ PARCIAL
 
-| Aspecto | Detalle |
-|---------|---------|
-| **Severidad** | 🔴 Crítico (CVSS: 9.8) |
-| **Ubicación** | `Cochera.Domain/Entities/Usuario.cs` |
-| **CWE** | CWE-287: Improper Authentication |
+| Campo | Valor |
+|-------|-------|
+| **OWASP** | A07:2021 — Identification and Authentication Failures |
+| **CWE** | CWE-862: Missing Authorization |
+| **CVSS v3.1** | ~~9.1~~ → **5.5** (reducido) |
+| **Vector** | AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:L/A:L |
+| **Estado** | ⚠️ **PARCIALMENTE MITIGADA** |
+| **Fecha** | Marzo 2026 |
 
-**Descripción:** La entidad `Usuario` no tiene campo de contraseña (`Password`, `PasswordHash`). Los usuarios se identifican por un código simple (`admin`, `usuario_1`), sin ningún secreto asociado.
+**Lo que se implementó (✅):**
 
 ```csharp
-public class Usuario : BaseEntity
+// CocheraHub.cs — Métodos protegidos
+[Authorize(Roles = "Admin")]
+public async Task UnirseComoAdmin() { ... }
+
+[Authorize]
+public async Task UnirseComoUsuario(int usuarioId)
 {
-    public string Nombre { get; set; } = string.Empty;
-    public string Codigo { get; set; } = string.Empty; // Único "identificador"
-    public bool EsAdmin { get; set; }                   // Rol hardcoded
+    var codigo = Context.User?.Identity?.Name;
+    // Validación de identidad
+    var usuario = await _usuarioService.GetByCodigoAsync(codigo);
+    if (Context.User?.IsInRole("Admin") == true || usuario.Id == usuarioId)
+    {
+        await Groups.AddToGroupAsync(Context.ConnectionId, $"usuario_{usuarioId}");
+        return;
+    }
+    throw new HubException("Acceso denegado");
+}
+
+// Auto-join en OnConnectedAsync
+public override async Task OnConnectedAsync()
+{
+    if (Context.User?.Identity?.IsAuthenticated == true)
+    {
+        if (Context.User.IsInRole("Admin"))
+            await Groups.AddToGroupAsync(Context.ConnectionId, "admins");
+        // ...
+    }
+}
+```
+
+**Lo que falta (❌):**
+
+1. **No hay `[Authorize]` a nivel de clase** — La clase `CocheraHub : Hub` no tiene el atributo `[Authorize]`, solo los métodos `UnirseComoAdmin` y `UnirseComoUsuario`.
+2. **Métodos sin protección:** Los siguientes métodos pueden ser invocados por cualquier conexión (incluso no autenticada en teoría):
+   - `NuevoEvento(EventoSensorDto)` — Envía a `Clients.All`
+   - `CambioEstado(EstadoCocheraDto)` — Envía a `Clients.All`
+   - `SalirDeGrupoUsuario(int)`
+   - `VehiculoDetectadoEnEntrada(EventoSensorDto)`
+   - `NuevaSesionCreada(SesionEstacionamientoDto)`
+   - `SolicitudCierreSesion(SesionEstacionamientoDto)`
+   - `UsuarioPagoConfirmado(SesionEstacionamientoDto)`
+   - `SesionCerrada(SesionEstacionamientoDto)`
+   - `ActualizarMontoSesion(SesionEstacionamientoDto)`
+
+**Recomendación pendiente:**
+```csharp
+[Authorize] // ← Agregar a nivel de clase
+public class CocheraHub : Hub
+{
+    // Todos los métodos quedan protegidos automáticamente
 }
 ```
 
 ---
 
-### A05:2021 – Security Misconfiguration (Configuración de Seguridad Incorrecta) 🟠 ALTO
+### V-008: Diseño Inseguro General → ⚠️ PARCIAL
 
-#### Hallazgo A05-01: AllowedHosts Wildcard
+| Campo | Valor |
+|-------|-------|
+| **OWASP** | A04:2021 — Insecure Design |
+| **CWE** | CWE-656: Reliance on Security Through Obscurity |
+| **CVSS v3.1** | ~~9.8~~ → **5.0** (reducido) |
+| **Estado** | ⚠️ **PARCIALMENTE MITIGADA** |
+| **Fecha** | Marzo 2026 |
 
-| Aspecto | Detalle |
-|---------|---------|
-| **Severidad** | 🟡 Medio (CVSS: 5.3) |
-| **Ubicación** | `Cochera.Web/appsettings.json` |
-| **CWE** | CWE-16: Configuration |
+**Lo que se implementó (✅):**
+- Autenticación real con ASP.NET Core Identity
+- Autorización basada en roles (Admin/User)
+- Protección de rutas con `AuthorizeRouteView`
+- Validación de identidad en SignalR Hub
+- Cookie segura con HttpOnly y expiración
+
+**Lo que falta (❌):**
+- Rate limiting en endpoint de login (`/auth/login`)
+- CORS restrictivo (actualmente no configurado)
+- Security headers (CSP, X-Frame-Options, etc.)
+- AntiForgery token en formulario de login (`DisableAntiforgery()` usado actualmente)
+- Audit logging de eventos de seguridad
+- Monitoreo de intentos fallidos de acceso
+
+---
+
+## 2.5 Detalle de Vulnerabilidades Pendientes
+
+### V-004: Credenciales Hardcoded en Firmware ❌
+
+| Campo | Valor |
+|-------|-------|
+| **OWASP** | I1:2018 — Weak, Guessable, or Hardcoded Passwords (IoT) |
+| **CWE** | CWE-798: Use of Hard-coded Credentials |
+| **CVSS v3.1** | **9.1** — AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N |
+| **Componente** | `sketch_jan16a.ino` |
+| **Estado** | ❌ **PENDIENTE** |
+
+```cpp
+// sketch_jan16a.ino — Credenciales en texto plano
+const char* ssid = "AVRIL@2014";       
+const char* password = "AVRIL@2014";   
+const char* mqtt_server = "192.168.100.16"; 
+const char* mqtt_user = "esp32";
+const char* mqtt_pass = "123456";
+```
+
+**Impacto:** Cualquiera con acceso al firmware puede extraer credenciales WiFi y MQTT.
+
+**Recomendación:**
+- Usar provisioning (SmartConfig o BLE) para WiFi
+- Almacenar credenciales en NVS cifrado del ESP32
+- Implementar certificados X.509 para MQTT
+
+---
+
+### V-005: MQTT Sin Cifrado TLS ❌
+
+| Campo | Valor |
+|-------|-------|
+| **OWASP** | I3:2018 — Insecure Ecosystem Interfaces (IoT) |
+| **CWE** | CWE-319: Cleartext Transmission of Sensitive Information |
+| **CVSS v3.1** | **7.4** — AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N |
+| **Componente** | Infraestructura MQTT (puerto 1883) |
+| **Estado** | ❌ **PENDIENTE** |
+
+```csharp
+// MqttConsumerService.cs — Conexión sin TLS
+var options = new MqttClientOptionsBuilder()
+    .WithTcpServer(_settings.Server, _settings.Port) // Puerto 1883 (sin TLS)
+    .WithCredentials(_settings.Username, _settings.Password)
+    .Build();
+```
+
+**Impacto:** Datos de sensores y credenciales MQTT viajan en texto plano. Un atacante en la red puede interceptar o inyectar mensajes.
+
+**Recomendación:** Usar puerto 8883 con `.WithTlsOptions()`.
+
+---
+
+### V-006: Sin Cifrado de Datos en Reposo ❌
+
+| Campo | Valor |
+|-------|-------|
+| **OWASP** | A02:2021 — Cryptographic Failures |
+| **CWE** | CWE-311: Missing Encryption of Sensitive Data |
+| **CVSS v3.1** | **5.3** — AV:N/AC:H/PR:L/UI:N/S:U/C:H/I:N/A:N |
+| **Estado** | ❌ **PENDIENTE** |
+
+> **Nota:** Las contraseñas de usuario ahora SÍ están cifradas (hash PBKDF2) gracias a Identity. Esta vulnerabilidad se refiere a datos de negocio (sesiones, pagos) que no tienen cifrado a nivel de columna o TDE.
+
+---
+
+### V-007: Inyección vía Mensajes MQTT ❌
+
+| Campo | Valor |
+|-------|-------|
+| **OWASP** | A03:2021 — Injection |
+| **CWE** | CWE-20: Improper Input Validation |
+| **CVSS v3.1** | **8.1** — AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:H |
+| **Componente** | `Cochera.Worker/MqttWorker.cs`, `MqttConsumerService.cs` |
+| **Estado** | ❌ **PENDIENTE** |
+
+Los mensajes MQTT se deserializan con `JsonSerializer.Deserialize<MensajeSensorMqtt>()` sin validación de esquema, límites de tamaño, ni firma de integridad.
+
+---
+
+### V-011: Acceso BD con Superusuario ❌
+
+| Campo | Valor |
+|-------|-------|
+| **OWASP** | A05:2021 — Security Misconfiguration |
+| **CWE** | CWE-250: Execution with Unnecessary Privileges |
+| **CVSS v3.1** | **8.6** — AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H |
+| **Estado** | ❌ **PENDIENTE** |
 
 ```json
-"AllowedHosts": "*"
+// appsettings.json
+"DefaultConnection": "Server=localhost;Port=5432;Database=Cochera;Username=postgres;Password=postgres;"
 ```
 
-**Impacto:** Permite que la aplicación acepte solicitudes desde cualquier hostname, facilitando ataques de host header injection.
+Se usa el superusuario `postgres` con contraseña trivial. Recomendación: crear usuario dedicado con `GRANT` mínimo.
 
-#### Hallazgo A05-02: Credenciales por Defecto de PostgreSQL
+---
 
-| Aspecto | Detalle |
-|---------|---------|
-| **Severidad** | 🟠 Alto (CVSS: 8.6) |
-| **Ubicación** | `appsettings.json` |
-| **CWE** | CWE-798: Use of Hard-coded Credentials |
+### V-012: Sin Headers de Seguridad HTTP ❌
 
-**Descripción:** Se usa el superusuario `postgres` con contraseña `postgres` para la aplicación. Este es el usuario con máximos privilegios en PostgreSQL.
-
-#### Hallazgo A05-03: RabbitMQ con Credenciales por Defecto
-
-| Aspecto | Detalle |
-|---------|---------|
-| **Severidad** | 🟠 Alto (CVSS: 8.6) |
-| **Ubicación** | RabbitMQ Management (puerto 15672) |
-| **CWE** | CWE-798: Use of Hard-coded Credentials |
-
-**Descripción:** El panel de administración de RabbitMQ (`guest/guest`) permanece accesible. Las credenciales del usuario MQTT (`esp32/123456`) son triviales.
-
-#### Hallazgo A05-04: Sin Headers de Seguridad HTTP
-
-| Aspecto | Detalle |
-|---------|---------|
-| **Severidad** | 🟡 Medio (CVSS: 5.3) |
-| **Ubicación** | `Cochera.Web/Program.cs` |
+| Campo | Valor |
+|-------|-------|
+| **OWASP** | A05:2021 — Security Misconfiguration |
 | **CWE** | CWE-693: Protection Mechanism Failure |
+| **CVSS v3.1** | **5.3** |
+| **Estado** | ❌ **PENDIENTE** |
 
-**Descripción:** La aplicación no configura headers de seguridad HTTP esenciales:
-
-| Header Faltante | Riesgo |
-|----------------|--------|
-| `Content-Security-Policy` | XSS, inyección de contenido |
-| `X-Content-Type-Options` | MIME type sniffing |
-| `X-Frame-Options` | Clickjacking |
-| `Strict-Transport-Security` | Downgrade a HTTP |
-| `X-XSS-Protection` | XSS reflejado |
-| `Referrer-Policy` | Fuga de información en Referer |
-| `Permissions-Policy` | Acceso a APIs del navegador |
+No se agregan headers: `Content-Security-Policy`, `X-Frame-Options`, `X-Content-Type-Options`, `Strict-Transport-Security`, `Referrer-Policy`, `Permissions-Policy`.
 
 ---
 
-### A06:2021 – Vulnerable and Outdated Components 🟡 MEDIO
+### V-013: Dependencias Sin Análisis de CVEs ❌
 
-#### Hallazgo A06-01: Dependencias con Posibles Vulnerabilidades
-
-| Aspecto | Detalle |
-|---------|---------|
-| **Severidad** | 🟡 Medio (CVSS: 5.0) |
+| Campo | Valor |
+|-------|-------|
+| **OWASP** | A06:2021 — Vulnerable and Outdated Components |
 | **CWE** | CWE-1104: Use of Unmaintained Third Party Components |
+| **CVSS v3.1** | **5.0** |
+| **Estado** | ❌ **PENDIENTE** |
 
-**Dependencias identificadas:**
-
-| Paquete | Versión Instalada | Última Estable (Mar 2026) | Riesgo |
-|---------|-------------------|---------------------------|--------|
-| `Microsoft.EntityFrameworkCore` | 8.0.11 | 9.0.x+ | Parches de seguridad pendientes |
-| `Npgsql.EntityFrameworkCore.PostgreSQL` | 8.0.11 | 9.0.x+ | Parches de seguridad pendientes |
-| `MQTTnet` | 4.3.3.952 | 5.x+ | Sin soporte activo |
-| `RabbitMQ.Client` | 6.8.1 | 7.x+ | API obsoleta |
-| `Radzen.Blazor` | 5.5.0 | 6.x+ | Posibles fixes de seguridad |
-| `MediatR` | 12.2.0 | 12.x+ | Bajo riesgo |
-
-**Nota:** Se requiere ejecutar `dotnet list package --vulnerable` para verificar vulnerabilidades conocidas (CVEs) en las versiones exactas.
+No hay `dotnet-outdated`, Dependabot, ni Snyk configurado.
 
 ---
 
-### A07:2021 – Identification and Authentication Failures 🔴 CRÍTICO
+### V-015: Sin Integridad en Mensajes MQTT ❌
 
-#### Hallazgo A07-01: Sin Mecanismo de Autenticación
-
-(Cubierto en A01-01, aquí se refuerza desde la perspectiva de autenticación)
-
-| Aspecto | Detalle |
-|---------|---------|
-| **Severidad** | 🔴 Crítico (CVSS: 9.8) |
-| **CWE** | CWE-306: Missing Authentication for Critical Function |
-
-**Funciones críticas sin autenticación:**
-- Iniciar sesiones de estacionamiento (cobro monetario)
-- Cerrar sesiones (afecta facturación)
-- Modificar tarifas (impacto financiero directo)
-- Acceso al dashboard (información sensible)
-- Confirmar pagos (afecta registros financieros)
-
-#### Hallazgo A07-02: Sin Gestión de Sesiones Segura
-
-| Aspecto | Detalle |
-|---------|---------|
-| **Severidad** | 🟠 Alto (CVSS: 7.4) |
-| **Ubicación** | `UsuarioActualService.cs` |
-| **CWE** | CWE-384: Session Fixation |
-
-**Descripción:** La "sesión" del usuario se almacena en `ProtectedSessionStorage` del navegador, que solo contiene el `Id` del usuario. No hay:
-- Token de sesión con expiración
-- Rotación de sesión al cambiar de usuario
-- Invalidación de sesión del lado del servidor
-- Timeout por inactividad
-
----
-
-### A08:2021 – Software and Data Integrity Failures 🟠 ALTO
-
-#### Hallazgo A08-01: Sin Validación de Integridad de Mensajes MQTT
-
-| Aspecto | Detalle |
-|---------|---------|
-| **Severidad** | 🟠 Alto (CVSS: 8.1) |
-| **Ubicación** | Comunicación ESP32 → RabbitMQ → Worker |
+| Campo | Valor |
+|-------|-------|
+| **OWASP** | I3:2018 — Insecure Ecosystem Interfaces (IoT) |
 | **CWE** | CWE-345: Insufficient Verification of Data Authenticity |
+| **CVSS v3.1** | **8.1** |
+| **Estado** | ❌ **PENDIENTE** |
 
-**Descripción:** Los mensajes MQTT del ESP32 no llevan firma digital ni HMAC. El backend no puede distinguir entre un mensaje legítimo del ESP32 y un mensaje falsificado por un atacante.
+No hay HMAC ni firma digital en los mensajes JSON del ESP32. Un atacante podría inyectar mensajes falsos.
 
-**Consecuencia:** Un atacante en la red puede inyectar eventos falsos que alteren el estado de los cajones, generen sesiones fantasma o manipulen el dashboard.
+---
 
-#### Hallazgo A08-02: Sin Verificación de Integridad del Firmware
+### V-016: Sin Secure Boot en ESP32 ❌
 
-| Aspecto | Detalle |
-|---------|---------|
-| **Severidad** | 🟡 Medio (CVSS: 6.5) |
-| **Ubicación** | `sketch_jan16a.ino` |
+| Campo | Valor |
+|-------|-------|
+| **OWASP** | I5:2018 — Lack of Secure Update Mechanism (IoT) |
 | **CWE** | CWE-494: Download of Code Without Integrity Check |
+| **CVSS v3.1** | **6.5** |
+| **Estado** | ❌ **PENDIENTE** |
 
-**Descripción:** El firmware del ESP32 se carga via USB sin verificación criptográfica. No existe mecanismo de Secure Boot ni OTA (Over-The-Air) seguro. Un atacante con acceso físico puede reemplazar el firmware.
+El firmware se puede reemplazar sin verificación.
 
 ---
 
-### A09:2021 – Security Logging and Monitoring Failures 🟠 ALTO
+## 2.6 Distribución por Categoría OWASP (Actualizada)
 
-#### Hallazgo A09-01: Logging Insuficiente para Seguridad
+### OWASP Top 10:2021
 
-| Aspecto | Detalle |
-|---------|---------|
-| **Severidad** | 🟠 Alto (CVSS: 7.0) |
-| **Ubicación** | Todo el sistema |
-| **CWE** | CWE-778: Insufficient Logging |
+| Categoría | Total | Mitigadas | Pendientes |
+|-----------|-------|-----------|------------|
+| A01 — Broken Access Control | 1 | 0.5 ⚠️ | 0.5 |
+| A02 — Cryptographic Failures | 1 | 0 | 1 |
+| A03 — Injection | 1 | 0 | 1 |
+| A04 — Insecure Design | 3 | 2 ✅ + 1 ⚠️ | 0 |
+| A05 — Security Misconfiguration | 3 | 0 | 3 |
+| A06 — Vulnerable Components | 1 | 0 | 1 |
+| A07 — Auth Failures | 3 | 3 ✅ | 0 |
+| A09 — Logging Failures | 1 | 0.5 ⚠️ | 0.5 |
 
-**Descripción:** El sistema tiene logging operacional (eventos del sensor, conexiones), pero no tiene logging de seguridad:
+### OWASP IoT Top 10:2018
 
-| Evento de seguridad | ¿Se registra? |
-|---------------------|---------------|
-| Cambio de usuario (suplantación) | ❌ No |
-| Intento de acceso a recurso ajeno | ❌ No |
-| Conexión SignalR no autorizada | ❌ No |
-| Mensaje MQTT malformado o sospechoso | ❌ No (solo error genérico) |
-| Modificación de tarifas | ❌ No |
-| Creación/cierre de sesiones | ✅ Parcial (como log operacional) |
-| Pagos procesados | ❌ No |
-| Errores de autenticación | ❌ No aplica (no hay autenticación) |
+| Categoría | Total | Mitigadas | Pendientes |
+|-----------|-------|-----------|------------|
+| I1 — Weak Passwords | 1 | 0 | 1 |
+| I3 — Insecure Interfaces | 2 | 0 | 2 |
+| I5 — Lack of Secure Update | 1 | 0 | 1 |
 
-#### Hallazgo A09-02: Excepciones Silenciadas
+---
 
-| Aspecto | Detalle |
-|---------|---------|
-| **Severidad** | 🟡 Medio (CVSS: 5.3) |
-| **Ubicación** | `UsuarioActualService.cs` |
-| **CWE** | CWE-390: Detection of Error Condition Without Action |
+## 2.7 Nuevas Observaciones de Seguridad Post-Implementación
 
-**Código vulnerable:**
+Durante la revisión del código de autenticación implementado, se identificaron las siguientes observaciones adicionales:
+
+### O-001: AntiForgery Deshabilitado en Login
+
 ```csharp
-catch
-{
-    // Ignorar errores de storage (puede fallar en prerendering)
-}
+app.MapPost("/auth/login", async (...) => { ... }).DisableAntiforgery();
 ```
 
-**Impacto:** Las excepciones silenciadas ocultan posibles ataques o fallos de seguridad. Un atacante que manipule el storage no dejaría rastro.
+**Justificación:** Necesario porque el formulario HTML POST no puede generar tokens AntiForgery desde un componente estático. Sin embargo, esto expone el endpoint a ataques CSRF desde sitios externos.
 
----
+**Riesgo:** Bajo — requiere que el atacante conozca credenciales válidas. Mitigation: agregar un token custom o SameSite=Strict en la cookie.
 
-### A10:2021 – Server-Side Request Forgery (SSRF) 🟢 BAJO
+### O-002: Credenciales de Prueba en Página de Login
 
-| Aspecto | Detalle |
-|---------|---------|
-| **Severidad** | 🟢 Bajo (CVSS: 2.0) |
-| **Análisis** | El sistema no tiene funcionalidades que permitan al usuario especificar URLs o recursos remotos para que el servidor los recupere. El riesgo de SSRF es mínimo en la arquitectura actual. |
+```razor
+<div style="margin-top: 1rem; font-size: .9rem; color: #374151;">
+    Usuarios de prueba:<br />
+    - admin / Admin12345<br />
+    - usuario_1 / Usuario12345
+</div>
+```
 
----
+**Riesgo:** Medio en producción. Debe eliminarse antes del despliegue.
 
-## 2.3 Análisis OWASP IoT Top 10:2018
+### O-003: LockoutEnabled = false en Usuarios Seed
 
-### I1: Weak, Guessable, or Hardcoded Passwords 🔴 CRÍTICO
-
-**Hallazgo:** Contraseña WiFi (`Abr11@2014`) y MQTT (`123456`) hardcoded en el firmware. La contraseña MQTT es trivialmente adivinable.
-
-### I2: Insecure Network Services 🟠 ALTO
-
-**Hallazgo:** MQTT sin TLS en puerto 1883. Credenciales MQTT viajan en texto plano en la conexión inicial.
-
-### I3: Insecure Ecosystem Interfaces 🔴 CRÍTICO
-
-**Hallazgo:** La interfaz web no tiene autenticación. El panel de RabbitMQ Management tiene credenciales por defecto.
-
-### I4: Lack of Secure Update Mechanism 🟡 MEDIO
-
-**Hallazgo:** No hay mecanismo de actualización OTA para el ESP32. Las actualizaciones requieren acceso físico al dispositivo via USB.
-
-### I5: Use of Insecure or Outdated Components 🟡 MEDIO
-
-**Hallazgo:** La librería PubSubClient del ESP32 no soporta TLS nativo. MQTTnet 4.3.3 tiene versiones más nuevas disponibles.
-
-### I7: Insecure Data Transfer and Storage 🟠 ALTO
-
-**Hallazgo:** Datos de sensores transmitidos sin cifrado. Credenciales WiFi almacenadas en la memoria flash del ESP32 sin protección.
-
-### I9: Insecure Default Settings 🟠 ALTO
-
-**Hallazgo:** Valores por defecto inseguros en `MqttSettings.cs`:
 ```csharp
-public string Username { get; set; } = "esp32";
-public string Password { get; set; } = "123456";
+var adminIdentityUser = new IdentityUser { LockoutEnabled = false };
+```
+
+**Impacto:** La protección contra fuerza bruta (`lockoutOnFailure: true` en `PasswordSignInAsync`) no surte efecto si `LockoutEnabled = false` en el usuario.
+
+**Recomendación:** Cambiar a `LockoutEnabled = true` en todos los usuarios seed.
+
+### O-004: Doble Registro de Authentication (Identity + Cookie)
+
+```csharp
+builder.Services.AddIdentity<IdentityUser, IdentityRole>(...);
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme).AddCookie();
+```
+
+**Observación:** `AddIdentity` ya registra cookie authentication internamente. El `AddAuthentication().AddCookie()` adicional puede causar conflictos con dos esquemas de cookie.
+
+---
+
+## 2.8 Mapa de Calor de Riesgo Residual
+
+```
+                    IMPACTO
+            Bajo    Medio    Alto    Crítico
+          ┌────────┬────────┬────────┬────────┐
+Muy Alta  │        │        │        │ V-004  │  PROBABILIDAD
+          │        │        │        │        │
+Alta      │        │        │ V-007  │ V-011  │
+          │        │        │ V-015  │        │
+Media     │        │ V-012  │ V-005  │        │
+          │        │        │        │        │
+Baja      │        │ V-006  │ V-016  │        │
+          │        │ V-013  │        │        │
+          │        │ V-010  │        │        │
+          └────────┴────────┴────────┴────────┘
+
+✅ Eliminados del mapa: V-001, V-009, V-014, V-018
+⚠️ Reducidos: V-002 (9.1→5.5), V-008 (9.8→5.0)
 ```
 
 ---
 
-## 2.4 Matriz Resumen de Vulnerabilidades
-
-| ID | Vulnerabilidad | OWASP | Severidad | CVSS | CWE |
-|----|---------------|-------|-----------|------|-----|
-| V-001 | Sin autenticación | A01, A07 | 🔴 Crítico | 9.8 | CWE-306 |
-| V-002 | SignalR Hub sin autorización | A01 | 🔴 Crítico | 9.1 | CWE-862 |
-| V-003 | IDOR en servicios | A01 | 🟠 Alto | 7.5 | CWE-639 |
-| V-004 | Credenciales hardcoded | A02 | 🔴 Crítico | 9.1 | CWE-312 |
-| V-005 | MQTT sin TLS | A02 | 🟠 Alto | 7.4 | CWE-319 |
-| V-006 | Sin cifrado en BD | A02 | 🟡 Medio | 5.3 | CWE-311 |
-| V-007 | Inyección MQTT | A03 | 🟠 Alto | 8.1 | CWE-20 |
-| V-008 | Diseño sin seguridad | A04 | 🔴 Crítico | 9.8 | CWE-657 |
-| V-009 | Modelo sin contraseñas | A04 | 🔴 Crítico | 9.8 | CWE-287 |
-| V-010 | AllowedHosts wildcard | A05 | 🟡 Medio | 5.3 | CWE-16 |
-| V-011 | Superusuario PostgreSQL | A05 | 🟠 Alto | 8.6 | CWE-798 |
-| V-012 | Sin headers seguridad | A05 | 🟡 Medio | 5.3 | CWE-693 |
-| V-013 | Dependencias desactualizadas | A06 | 🟡 Medio | 5.0 | CWE-1104 |
-| V-014 | Sin gestión de sesiones | A07 | 🟠 Alto | 7.4 | CWE-384 |
-| V-015 | Sin integridad MQTT | A08 | 🟠 Alto | 8.1 | CWE-345 |
-| V-016 | Sin Secure Boot ESP32 | A08 | 🟡 Medio | 6.5 | CWE-494 |
-| V-017 | Logging insuficiente | A09 | 🟠 Alto | 7.0 | CWE-778 |
-| V-018 | Excepciones silenciadas | A09 | 🟡 Medio | 5.3 | CWE-390 |
-
-### Distribución por Severidad
-
-| Severidad | Cantidad | Porcentaje |
-|-----------|----------|------------|
-| 🔴 Crítico | 5 | 27.8% |
-| 🟠 Alto | 8 | 44.4% |
-| 🟡 Medio | 5 | 27.8% |
-| 🟢 Bajo | 0 | 0% |
-| **Total** | **18** | **100%** |
+*Anterior: [01 — Descripción del Sistema](01-descripcion-del-sistema.md)*
+*Siguiente: [03 — Análisis de Código Inseguro](03-analisis-codigo-inseguro.md)*

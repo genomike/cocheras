@@ -2,6 +2,9 @@
 
 Sistema completo de gestión de estacionamiento que integra hardware IoT (ESP32 + sensores ultrasónicos) con una aplicación web en tiempo real desarrollada con .NET 8 y Blazor Server. El sistema monitorea automáticamente la ocupación de cajones, gestiona sesiones de estacionamiento, procesa pagos y proporciona un dashboard administrativo con estadísticas en tiempo real.
 
+### Autenticación
+El sistema implementa **ASP.NET Core Identity** con autenticación por cookies, roles (`Admin`/`User`), contraseñas hasheadas con PBKDF2-HMAC-SHA256 y protección de rutas mediante `AuthorizeRouteView`.
+
 ---
 
 ## Arquitectura del Sistema
@@ -29,6 +32,7 @@ Sistema completo de gestión de estacionamiento que integra hardware IoT (ESP32 
 | IoT / Hardware | ESP32, HC-SR04, Arduino C++ |
 | Comunicación | MQTT (MQTTnet 4.3.3), RabbitMQ, SignalR |
 | Backend | .NET 8, Entity Framework Core 8, Clean Architecture |
+| Autenticación | ASP.NET Core Identity, Cookies, PBKDF2-HMAC-SHA256 |
 | Frontend | Blazor Server, Radzen Blazor 5.5.0 |
 | Base de Datos | PostgreSQL 16, Npgsql 8.0.11 |
 
@@ -104,7 +108,16 @@ Editar `appsettings.json` en Cochera.Web y Cochera.Worker:
 cd cochera/src/Cochera.Web
 dotnet run
 ```
-Acceder a: http://localhost:5000
+Acceder a: http://localhost:5000 (redirige a `/login`)
+
+### Credenciales de prueba:
+
+| Email | Contraseña | Rol |
+|-------|-----------|-----|
+| admin@cochera.com | Admin123! | Administrador |
+| user1@cochera.com | User123! | Usuario |
+| user2@cochera.com | User123! | Usuario |
+| user3@cochera.com | User123! | Usuario |
 
 ### 6. Ejecutar el worker (en otra terminal)
 
@@ -164,6 +177,17 @@ Abrir `sketch_jan16a.ino` en Arduino IDE, configurar WiFi y MQTT, y subir al ESP
 
 ## Datos Iniciales (Seed)
 
+### Usuarios de Identity (Login)
+
+| Email | Contraseña | Rol |
+|-------|-----------|-----|
+| admin@cochera.com | Admin123! | Admin |
+| user1@cochera.com | User123! | User |
+| user2@cochera.com | User123! | User |
+| user3@cochera.com | User123! | User |
+
+### Usuarios de Dominio
+
 | Código | Nombre | Rol |
 |--------|--------|-----|
 | admin | Administrador | Admin |
@@ -180,11 +204,24 @@ Abrir `sketch_jan16a.ino` en Arduino IDE, configurar WiFi y MQTT, y subir al ESP
 
 | Documento | Descripción |
 |-----------|-------------|
-| [01 - Arquitectura](docs/01-arquitectura.md) | Arquitectura del sistema, patrones, capas, stack tecnológico |
-| [02 - Modelo de Datos](docs/02-modelo-de-datos.md) | Entidades, relaciones, enumeraciones, configuración EF Core |
-| [03 - Servicios y Lógica](docs/03-servicios-y-logica.md) | Servicios de aplicación, flujos de negocio, DTOs, SignalR |
+| [01 - Arquitectura](docs/01-arquitectura.md) | Arquitectura del sistema, patrones, capas, autenticación, stack tecnológico |
+| [02 - Modelo de Datos](docs/02-modelo-de-datos.md) | Entidades, Identity, relaciones, enumeraciones, configuración EF Core |
+| [03 - Servicios y Lógica](docs/03-servicios-y-logica.md) | Servicios de aplicación, flujos de negocio, autenticación, DTOs, SignalR |
 | [04 - IoT y Arduino](docs/04-iot-y-arduino.md) | Firmware ESP32, sensores, LEDs, buzzer, protocolo MQTT |
 | [05 - Guía de Instalación](docs/05-guia-instalacion.md) | Instrucciones paso a paso para configurar y ejecutar todo |
+
+### Análisis de Seguridad
+
+| Documento | Descripción |
+|-----------|-------------|
+| [README - Índice](docs/analisis_seguridad/README.md) | Índice y resumen del análisis de seguridad |
+| [01 - Descripción del Sistema](docs/analisis_seguridad/01-descripcion-del-sistema.md) | Superficie de ataque y arquitectura de seguridad |
+| [02 - Amenazas OWASP](docs/analisis_seguridad/02-amenazas-y-vulnerabilidades-owasp.md) | 18 vulnerabilidades analizadas con CVSS y estado de mitigación |
+| [03 - Análisis de Código](docs/analisis_seguridad/03-analisis-codigo-inseguro.md) | Hallazgos de código inseguro corregidos y pendientes |
+| [04 - Propuesta de Mejoras](docs/analisis_seguridad/04-propuesta-mejoras.md) | Plan de mejoras con prioridades y roadmap |
+| [05 - Pruebas SAST/DAST](docs/analisis_seguridad/05-pruebas-sast-dast.md) | Configuración de herramientas y escenarios de prueba |
+| [06 - Gestión de Vulnerabilidades](docs/analisis_seguridad/06-gestion-vulnerabilidades.md) | Registro y seguimiento de vulnerabilidades |
+| [07 - Conclusiones](docs/analisis_seguridad/07-conclusiones.md) | Evaluación OWASP SAMM y recomendaciones |
 
 ### Diagramas UML (PlantUML)
 

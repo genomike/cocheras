@@ -1,411 +1,192 @@
-# 06 - Gestión de Vulnerabilidades y Parcheo
+# 06 — Gestión de Vulnerabilidades y Parcheo
 
-## 6.1 Introducción
+## 6.1 Ciclo de Vida de Vulnerabilidades
 
-La gestión de vulnerabilidades es un proceso continuo que abarca la identificación, clasificación, priorización, remediación y verificación de debilidades de seguridad en el sistema. Para un sistema IoT como Cochera Inteligente, esto incluye tanto componentes de software (aplicación .NET, dependencias NuGet) como componentes de hardware/firmware (ESP32) y servicios de infraestructura (PostgreSQL, RabbitMQ).
-
----
-
-## 6.2 Ciclo de Vida de la Gestión de Vulnerabilidades
+### Proceso Definido
 
 ```
-┌─────────────┐    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐    ┌─────────────┐
-│ 1. Descubrir │───▶│ 2. Clasificar│───▶│ 3. Priorizar │───▶│ 4. Remediar  │───▶│ 5. Verificar│
-└─────────────┘    └──────────────┘    └──────────────┘    └──────────────┘    └─────────────┘
-       ▲                                                                              │
-       └──────────────────────────────────────────────────────────────────────────────┘
-                                    Proceso Continuo
+┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐
+│  NUEVA   │───►│ TRIAGED  │───►│ EN CURSO │───►│ VERIFICAR│───►│ CERRADA  │
+│          │    │          │    │          │    │          │    │          │
+│ Detectada│    │ CVSS,    │    │ Desarrollo│   │ Testing  │    │ Mitigada │
+│ por scan │    │ prioridad│    │ de fix   │    │ SAST/DAST│    │ en prod  │
+└──────────┘    └──────────┘    └──────────┘    └──────────┘    └──────────┘
 ```
 
-### Fase 1: Descubrimiento
-- Escaneos SAST/DAST automatizados (ver documento 05)
-- Monitoreo de CVEs en dependencias (NVD, GitHub Advisories)
-- Auditorías de código manuales
-- Reportes de incidentes internos o externos
-- Pruebas de penetración periódicas
+### SLAs por Severidad
 
-### Fase 2: Clasificación
-- Asignar identificador único (ej. COCH-VULN-001)
-- Determinar tipo (CWE) y categoría OWASP
-- Documentar vector de ataque y activo afectado
-- Estimar impacto y probabilidad con CVSS v3.1
-
-### Fase 3: Priorización
-- Basada en severidad CVSS × exposición × impacto en el negocio
-- Utilizar la matriz de riesgo de la sección 6.4
-
-### Fase 4: Remediación
-- Desarrollar e implementar el fix
-- Code review obligatorio para cambios de seguridad
-- Pruebas de regresión
-
-### Fase 5: Verificación
-- Re-ejecutar la prueba que detectó la vulnerabilidad
-- Validar que no se introdujeron regresiones
-- Cerrar el ticket de vulnerabilidad
+| Severidad | CVSS | SLA Respuesta | SLA Resolución |
+|-----------|------|--------------|----------------|
+| 🔴 Crítica | 9.0-10.0 | 4 horas | 48 horas |
+| 🟠 Alta | 7.0-8.9 | 24 horas | 7 días |
+| 🟡 Media | 4.0-6.9 | 72 horas | 30 días |
+| 🟢 Baja | 0.1-3.9 | 1 semana | 90 días |
 
 ---
 
-## 6.3 Inventario de Activos y Componentes
+## 6.2 Registro de Vulnerabilidades (Actualizado)
 
-### 6.3.1 Componentes de Software
+### 6.2.1 Vulnerabilidades Cerradas ✅
 
-| Componente | Versión actual | Tipo | Fuente de actualizaciones |
-|------------|---------------|------|--------------------------|
-| .NET Runtime | 8.0 LTS | Framework | https://dotnet.microsoft.com/en-us/download |
-| ASP.NET Core | 8.0 | Framework | Microsoft Update |
-| EF Core | 8.0.11 | ORM | NuGet |
-| Npgsql | 8.0.11 | Driver BD | NuGet / GitHub Advisories |
-| MQTTnet | 4.3.3.952 | Cliente MQTT | NuGet / GitHub Advisories |
-| RabbitMQ.Client | 6.8.1 | Cliente AMQP | NuGet |
-| Radzen.Blazor | 5.5.0 | UI components | NuGet |
-| MediatR | 12.2.0 | mediador | NuGet |
+| ID | Vulnerabilidad | CVSS | Fecha Detección | Fecha Cierre | Método de Cierre |
+|----|---------------|------|----------------|-------------|-----------------|
+| V-001 | Sistema sin autenticación | 9.8 | Ene 2025 | **Mar 2026** | ASP.NET Core Identity implementado |
+| V-009 | Modelo sin contraseñas | 9.8 | Ene 2025 | **Mar 2026** | IdentityUser con PasswordHasher |
+| V-014 | Sin gestión de sesiones | 7.4 | Ene 2025 | **Mar 2026** | Cookie auth con expiración 8h |
+| V-018 | Excepciones silenciadas | 5.3 | Ene 2025 | **Mar 2026** | Catch vacíos eliminados de UsuarioActualService |
+| V-003 | IDOR acceso sin ownership | 7.5 | Ene 2025 | **Mar 2026** | Parcial — Auth obliga login, pero IDOR persiste intra-rol |
 
-### 6.3.2 Firmware
+**Tiempo promedio de resolución (vulnerabilidades críticas):** ~14 meses (análisis académico, no producción)
 
-| Componente | Versión | Fuente |
-|------------|---------|--------|
-| Arduino ESP32 Core | 2.x | Arduino Board Manager |
-| WiFi.h | SDK | Bundled with ESP32 Core |
-| PubSubClient | 2.x | Arduino Library Manager |
-| ArduinoJson | 7.x | Arduino Library Manager |
+### 6.2.2 Vulnerabilidades Parcialmente Mitigadas ⚠️
 
-### 6.3.3 Infraestructura
+| ID | Vulnerabilidad | CVSS Original | CVSS Actual | Notas |
+|----|---------------|--------------|------------|-------|
+| V-002 | SignalR Hub sin autorización | 9.1 | **5.5** | Métodos clave protegidos, clase sin `[Authorize]` |
+| V-008 | Diseño inseguro general | 9.8 | **5.0** | Auth implementado, falta rate limiting, headers, CSRF |
 
-| Componente | Versión | Fuente de CVE |
-|------------|---------|--------------|
-| PostgreSQL | 16.x | https://www.postgresql.org/support/security/ |
-| RabbitMQ | 3.x / 4.x | https://www.rabbitmq.com/news.html |
-| Erlang/OTP | 26.x | https://www.erlang.org/patches |
+### 6.2.3 Vulnerabilidades Abiertas ❌
 
----
-
-## 6.4 Matriz de Clasificación de Riesgo
-
-### Severidad CVSS v3.1
-
-| Rango CVSS | Severidad | Color |
-|-----------|-----------|-------|
-| 9.0 - 10.0 | Crítica | 🔴 |
-| 7.0 - 8.9 | Alta | 🟠 |
-| 4.0 - 6.9 | Media | 🟡 |
-| 0.1 - 3.9 | Baja | 🟢 |
-
-### SLAs de Remediación
-
-| Severidad | SLA máximo | Acciones inmediatas |
-|-----------|-----------|-------------------|
-| **Crítica** | 72 horas | Notificar equipo, evaluar workaround temporal, parche urgente |
-| **Alta** | 7 días | Incluir en sprint actual, comunicar stakeholders |
-| **Media** | 30 días | Planificar para próximo sprint |
-| **Baja** | 90 días | Incluir en backlog priorizado |
-
-### Matriz de Priorización (Impacto × Probabilidad)
-
-|  | Impacto Bajo | Impacto Medio | Impacto Alto | Impacto Crítico |
-|--|-------------|---------------|-------------|----------------|
-| **Probabilidad Alta** | Media | Alta | Crítica | Crítica |
-| **Probabilidad Media** | Baja | Media | Alta | Crítica |
-| **Probabilidad Baja** | Info | Baja | Media | Alta |
+| ID | Vulnerabilidad | CVSS | Severidad | Días Abierta | Dentro de SLA |
+|----|---------------|------|-----------|-------------|---------------|
+| V-004 | Credenciales hardcoded firmware | 9.1 | 🔴 Crítica | 420+ | ❌ No |
+| V-007 | Inyección MQTT | 8.1 | 🟠 Alta | 420+ | ❌ No |
+| V-011 | Superusuario PostgreSQL | 8.6 | 🟠 Alta | 420+ | ❌ No |
+| V-015 | Sin integridad MQTT | 8.1 | 🟠 Alta | 420+ | ❌ No |
+| V-005 | MQTT sin TLS | 7.4 | 🟠 Alta | 420+ | ❌ No |
+| V-016 | Sin Secure Boot ESP32 | 6.5 | 🟡 Media | 420+ | ❌ No |
+| V-012 | Sin headers seguridad | 5.3 | 🟡 Media | 420+ | ❌ No |
+| V-010 | AllowedHosts = "*" | 5.3 | 🟡 Media | 420+ | ❌ No |
+| V-006 | Sin cifrado en reposo | 5.3 | 🟡 Media | 420+ | ❌ No |
+| V-013 | Sin análisis de CVEs | 5.0 | 🟡 Media | 420+ | ❌ No |
+| V-017 | Sin logging de seguridad | 7.0 | 🟠 Alta | 420+ | ❌ No |
 
 ---
 
-## 6.5 Registro de Vulnerabilidades Conocidas
+## 6.3 Métricas de Seguridad
 
-### Ejemplo de registro para Cochera Inteligente
+### 6.3.1 Dashboard de Estado
 
-| ID | Título | CVSS | Estado | SLA | Fecha det. | Fecha res. |
-|----|--------|------|--------|-----|-----------|-----------|
-| COCH-001 | Sin autenticación en web | 9.8 | Pendiente | 72h | 2025-01-16 | - |
-| COCH-002 | Sin autorización en SignalR Hub | 9.1 | Pendiente | 72h | 2025-01-16 | - |
-| COCH-003 | Credenciales hardcoded en firmware | 8.6 | Pendiente | 72h | 2025-01-16 | - |
-| COCH-004 | MQTT sin TLS | 8.1 | Pendiente | 7 días | 2025-01-16 | - |
-| COCH-005 | String de conexión con password en config | 7.5 | Pendiente | 7 días | 2025-01-16 | - |
-| COCH-006 | IDOR en sesiones de estacionamiento | 7.2 | Pendiente | 7 días | 2025-01-16 | - |
-| COCH-007 | Catch vacíos en UsuarioActualService | 5.3 | Pendiente | 30 días | 2025-01-16 | - |
-| COCH-008 | No hay rate limiting | 6.5 | Pendiente | 30 días | 2025-01-16 | - |
-| COCH-009 | AllowedHosts configurado como "*" | 5.0 | Pendiente | 30 días | 2025-01-16 | - |
+```
+══════════════════════════════════════════════════════════
+      COCHERA INTELIGENTE — SECURITY DASHBOARD
+══════════════════════════════════════════════════════════
+
+  Vulnerabilidades Totales:     18
+  ┌─────────┬─────────┬─────────┬─────────┐
+  │ ✅ CERR  │ ⚠️ PARC  │ ❌ ABRT  │ CVSS AVG│
+  │   5+2    │    2    │    9    │   6.9   │
+  └─────────┴─────────┴─────────┴─────────┘
+
+  Hallazgos de Código:          23
+  ┌─────────┬─────────┐
+  │ ✅ CORR  │ ❌ PEND  │
+  │   10    │   13    │
+  └─────────┴─────────┘
+
+  Mejoras Propuestas:           18
+  ┌─────────┬─────────┐
+  │ ✅ IMPL  │ ❌ PEND  │
+  │    4    │   14    │
+  └─────────┴─────────┘
+
+  OWASP Top 10 Cobertura:
+  A01 ████████░░ 80%  A02 ░░░░░░░░░░  0%
+  A03 ░░░░░░░░░░  0%  A04 ████████░░ 80%
+  A05 ░░░░░░░░░░  0%  A06 ░░░░░░░░░░  0%
+  A07 ██████████ 100%  A08 N/A
+  A09 ████░░░░░░ 40%  A10 N/A
+══════════════════════════════════════════════════════════
+```
+
+### 6.3.2 Tendencia de Riesgo
+
+```
+CVSS Promedio del Sistema:
+
+10 ┤
+ 9 ┤ ████  (9.8 — Ene 2025: sin auth)
+ 8 ┤ ████
+ 7 ┤ ████
+ 6 ┤ ████  ────────────  ████ (6.9 — Mar 2026: con Identity)
+ 5 ┤ ████                ████
+ 4 ┤ ████                ████
+ 3 ┤ ████                ████
+ 2 ┤ ████                ████
+ 1 ┤ ████                ████
+ 0 ┼────────────────────────────
+   Ene 2025           Mar 2026
+```
 
 ---
 
-## 6.6 Gestión de Dependencias y Parcheo
+## 6.4 Gestión de Dependencias
 
-### 6.6.1 Política de Actualización de Dependencias
+### 6.4.1 Paquetes NuGet Monitoreados
 
-| Tipo de actualización | Estrategia | Frecuencia |
-|----------------------|-----------|-----------|
-| **Parches de seguridad (CVE)** | Actualización inmediata según SLA | Reactivo |
-| **Patch versions** (x.x.PATCH) | Actualización automática | Semanal |
-| **Minor versions** (x.MINOR.x) | Revisión + testing | Mensual |
-| **Major versions** (MAJOR.x.x) | Evaluación de breaking changes + migration plan | Trimestral |
+| Paquete | Versión Actual | Última Estable | CVEs Conocidos |
+|---------|---------------|---------------|---------------|
+| Microsoft.AspNetCore.Identity.EntityFrameworkCore | 8.0.x | Verificar | Ninguno conocido |
+| MQTTnet | 4.3.3 | 4.3.7+ | Verificar |
+| Npgsql.EntityFrameworkCore.PostgreSQL | 8.0.x | Verificar | Ninguno conocido |
+| Radzen.Blazor | 5.x | Verificar | Ninguno conocido |
+| Microsoft.EntityFrameworkCore | 8.0.x | Verificar | Ninguno conocido |
 
-### 6.6.2 Configuración de Dependabot (GitHub)
+### 6.4.2 Configuración Dependabot Propuesta
 
 ```yaml
 # .github/dependabot.yml
 version: 2
 updates:
-  # NuGet packages
   - package-ecosystem: "nuget"
     directory: "/cochera/src"
     schedule:
       interval: "weekly"
-      day: "monday"
-      time: "06:00"
-      timezone: "America/Argentina/Buenos_Aires"
-    open-pull-requests-limit: 10
+    reviewers:
+      - "security-team"
     labels:
       - "dependencies"
       - "security"
-    reviewers:
-      - "equipo-seguridad"
-    groups:
-      microsoft:
-        patterns:
-          - "Microsoft.*"
-          - "System.*"
-      entityframework:
-        patterns:
-          - "Microsoft.EntityFrameworkCore*"
-          - "Npgsql*"
-    # Ignorar actualizaciones mayores automáticamente
-    ignore:
-      - dependency-name: "Radzen.Blazor"
-        update-types: ["version-update:semver-major"]
-
-  # GitHub Actions
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-```
-
-### 6.6.3 Proceso de Actualización de Dependencias
-
-```
-1. Dependabot/Snyk detecta actualización disponible
-        │
-        ▼
-2. Se crea PR automático con changelog
-        │
-        ▼
-3. Pipeline CI ejecuta:
-   ├── Build
-   ├── Unit tests
-   ├── SAST scan
-   └── SCA scan
-        │
-        ▼
-4. ¿Pasan todas las pruebas?
-   ├── SÍ → Code review → Merge
-   └── NO → Revisar breaking changes → Fix manual
-        │
-        ▼
-5. Deploy a staging → Pruebas de regresión
-        │
-        ▼
-6. Deploy a producción
-```
-
-### 6.6.4 Actualizaciones del Firmware ESP32
-
-El firmware IoT presenta desafíos adicionales:
-
-| Desafío | Solución recomendada |
-|---------|---------------------|
-| No hay OTA actualmente | Implementar actualización OTA vía WiFi |
-| Biblioteca PubSubClient sin mantenimiento activo | Evaluar migración a AsyncMqttClient o esp-mqtt nativo |
-| No hay versionado del firmware | Implementar esquema semver en código |
-| No hay rollback | Implementar partición OTA dual (factory + ota_0 + ota_1) |
-
-**Configuración OTA recomendada:**
-```cpp
-#include <ArduinoOTA.h>
-
-void setupOTA() {
-    ArduinoOTA.setHostname("cochera-esp32");
-    ArduinoOTA.setPassword("ota_secure_password");
-    ArduinoOTA.setPort(3232);
-    
-    ArduinoOTA.onStart([]() {
-        Serial.println("Inicio de actualización OTA");
-    });
-    
-    ArduinoOTA.onEnd([]() {
-        Serial.println("Actualización completada");
-    });
-    
-    ArduinoOTA.onError([](ota_error_t error) {
-        Serial.printf("Error OTA [%u]\n", error);
-    });
-    
-    ArduinoOTA.begin();
-}
+    open-pull-requests-limit: 10
 ```
 
 ---
 
-## 6.7 Monitoreo Continuo de Seguridad
+## 6.5 Plan de Respuesta a Incidentes
 
-### 6.7.1 Fuentes de Inteligencia de Amenazas
+### 6.5.1 Clasificación de Incidentes
 
-| Fuente | URL | Relevancia |
-|--------|-----|-----------|
-| NVD (NIST) | https://nvd.nist.gov/ | CVEs de todas las dependencias |
-| GitHub Security Advisories | https://github.com/advisories | Paquetes NuGet y npm |
-| Microsoft Security Response Center | https://msrc.microsoft.com/ | .NET, ASP.NET Core |
-| RabbitMQ CVEs | https://www.cvedetails.com/vendor/12639/Pivotal-Software.html | RabbitMQ |
-| PostgreSQL Security | https://www.postgresql.org/support/security/ | Base de datos |
-| Espressif Security Advisories | https://www.espressif.com/en/news/Espressif_Security_Advisories | ESP32 |
+| Nivel | Descripción | Ejemplo | Acción |
+|-------|------------|---------|--------|
+| SEV-1 | Brecha activa | Acceso no autorizado a datos | Respuesta inmediata, desconectar servicio |
+| SEV-2 | Vulnerabilidad explotable | Bypass de autenticación | Parche de emergencia <48h |
+| SEV-3 | Exposición de datos | Credenciales en log | Rotación de credenciales |
+| SEV-4 | Vulnerabilidad teórica | CVE en dependencia no explotable | Actualización planificada |
 
-### 6.7.2 Alertas y Notificaciones
+### 6.5.2 Contactos de Respuesta
 
-Se recomienda configurar alertas automáticas:
-
-```yaml
-# Configuración de GitHub Security Alerts
-# Settings → Code security and analysis →
-# - Dependabot alerts: ✅ Enabled
-# - Dependabot security updates: ✅ Enabled
-# - Code scanning: ✅ Enabled (con CodeQL)
-# - Secret scanning: ✅ Enabled
-```
-
-### 6.7.3 Dashboard de Seguridad
-
-Métricas a seguir en un dashboard centralizado:
-
-| Métrica | Meta | Frecuencia de revisión |
-|---------|------|----------------------|
-| Vulnerabilidades abiertas por severidad | Críticas: 0, Altas: < 3 | Diaria |
-| Edad media de vulnerabilidades abiertas | < 15 días | Semanal |
-| % de dependencias actualizadas | > 90% | Semanal |
-| Cobertura de escaneo SAST | 100% de repos | Mensual |
-| Tiempo medio de remediación | Dentro del SLA | Mensual |
-| Número de incidentes de seguridad | 0 | Mensual |
-| Score de SonarQube Security | A | Cada build |
+| Rol | Responsabilidad |
+|-----|----------------|
+| Desarrollador principal | Triaje técnico, desarrollo de parche |
+| Responsable de seguridad | Evaluación de impacto, comunicación |
+| DBA | Respuesta a incidentes de base de datos |
+| Administrador de red | Respuesta a incidentes de red/MQTT |
 
 ---
 
-## 6.8 Plan de Respuesta a Incidentes
+## 6.6 Checklist de Parcheo Post-Remediación
 
-### 6.8.1 Clasificación de Incidentes
+### Fase 2 — Próximos Parches Prioritarios
 
-| Nivel | Descripción | Ejemplo |
-|-------|-------------|---------|
-| SEV-1 | Acceso no autorizado a datos o control del sistema | Explotación de falta de autenticación |
-| SEV-2 | Explotación parcial o denegación de servicio | Inyección MQTT masiva |
-| SEV-3 | Intento de ataque detectado sin éxito | Escaneo de puertos |
-| SEV-4 | Anomalía menor | Pico inusual de consultas |
-
-### 6.8.2 Procedimiento de Respuesta
-
-```
-DETECTAR → CONTENER → ERRADICAR → RECUPERAR → LECCIONES APRENDIDAS
-```
-
-**Fase 1: Detección** (0-15 min)
-- Identificar el incidente (alerta automática o reporte manual)
-- Clasificar severidad
-- Notificar al equipo responsable
-
-**Fase 2: Contención** (15-60 min)
-- Aislar el sistema afectado si es necesario
-- Ej: Detener MqttWorker si hay inyección MQTT
-- Ej: Restringir acceso de red al broker
-- Preservar evidencia (logs, capturas de tráfico)
-
-**Fase 3: Erradicación** (1-24h según severidad)
-- Identificar la causa raíz
-- Desarrollar y aplicar fix
-- Verificar que el vector de ataque está cerrado
-
-**Fase 4: Recuperación** (post-fix)
-- Restaurar servicios a operación normal
-- Monitorear de cerca por 24-72 horas
-- Verificar integridad de datos
-
-**Fase 5: Lecciones Aprendidas** (1 semana post-incidente)
-- Documentar timeline del incidente
-- Identificar mejoras en detección/respuesta
-- Actualizar runbooks y procedimientos
-- Fortalecer las pruebas de seguridad
+- [ ] **Agregar `[Authorize]` a nivel de clase en `CocheraHub`** (~30 min, V-002)
+- [ ] **Cambiar `LockoutEnabled = true`** en usuarios seed (~15 min, V-008)
+- [ ] **Agregar rate limiting** en `/auth/login` (~2h, V-008)
+- [ ] **Mover connection string a User Secrets** (~1h, V-011)
+- [ ] **Configurar AllowedHosts** (~15 min, V-010)
+- [ ] **Agregar headers de seguridad** (~2h, V-012)
+- [ ] **Eliminar credenciales de prueba** de Login.razor (~5 min, O-002)
 
 ---
 
-## 6.9 Gestión de Secretos y Credenciales
-
-### 6.9.1 Estado Actual (Problemático)
-
-| Secreto | Ubicación actual | Riesgo |
-|---------|-----------------|--------|
-| PostgreSQL password ("postgres") | appsettings.json (en repo) | Crítico |
-| MQTT credentials ("esp32"/"123456") | MqttSettings.cs, appsettings.json | Crítico |
-| WiFi password ("Abr11@2014") | sketch_jan16a.ino (en repo) | Alto |
-| RabbitMQ credentials | appsettings.json (en repo) | Alto |
-
-### 6.9.2 Solución: Gestión Centralizada de Secretos
-
-**Opción A: User Secrets de .NET (para desarrollo)**
-```bash
-# Inicializar
-cd src/Cochera.Web
-dotnet user-secrets init
-dotnet user-secrets set "ConnectionStrings:DefaultConnection" \
-  "Host=localhost;Port=5432;Database=Cochera;Username=cochera_app;Password=<SECURE_PASSWORD>"
-dotnet user-secrets set "Mqtt:Password" "<SECURE_MQTT_PASSWORD>"
-```
-
-**Opción B: Azure Key Vault (para producción)**
-```csharp
-// Program.cs
-builder.Configuration.AddAzureKeyVault(
-    new Uri("https://cochera-vault.vault.azure.net/"),
-    new DefaultAzureCredential());
-```
-
-**Opción C: HashiCorp Vault (self-hosted)**
-```bash
-# Almacenar secretos
-vault kv put secret/cochera/database \
-  connection_string="Host=...;Password=..."
-
-vault kv put secret/cochera/mqtt \
-  username="cochera_worker" \
-  password="<GENERATED>"
-```
-
-### 6.9.3 Rotación de Credenciales
-
-| Secreto | Frecuencia de rotación | Automatizable |
-|---------|----------------------|---------------|
-| PostgreSQL password | 90 días | Sí (con Vault) |
-| MQTT credentials | 90 días | Sí |
-| WiFi password | 180 días | No (requiere reflash) |
-| API keys (futuras) | 60 días | Sí |
-
----
-
-## 6.10 Checklist de Verificación Periódica
-
-### Mensual
-- [ ] Revisar alertas de Dependabot/Snyk
-- [ ] Actualizar dependencias NuGet (patch versions)
-- [ ] Ejecutar escaneo SAST completo con SonarQube
-- [ ] Revisar logs de acceso a RabbitMQ Management
-- [ ] Verificar estado de certificados TLS (cuando se implementen)
-
-### Trimestral
-- [ ] Ejecutar prueba DAST completa con OWASP ZAP
-- [ ] Revisar y actualizar reglas de Semgrep
-- [ ] Auditar usuarios y permisos de PostgreSQL
-- [ ] Auditar topics y permisos MQTT
-- [ ] Actualizar inventario de componentes (sección 6.3)
-- [ ] Revisar y actualizar la matriz de riesgos
-
-### Semestral
-- [ ] Prueba de penetración manual
-- [ ] Actualización de major versions (.NET, PostgreSQL, RabbitMQ)
-- [ ] Revisión de firmware ESP32 y bibliotecas
-- [ ] Simulacro de respuesta a incidentes
-- [ ] Revisión del plan de gestión de vulnerabilidades
+*Anterior: [05 — Pruebas de Seguridad](05-pruebas-sast-dast.md)*
+*Siguiente: [07 — Conclusiones](07-conclusiones.md)*

@@ -1,186 +1,247 @@
-# 01 - Descripción del Sistema Evaluado
+# 01 — Descripción del Sistema
 
-## 1.1 Información General
+## 1.1 Resumen Ejecutivo
 
-| Campo | Detalle |
-|-------|---------|
-| **Nombre del sistema** | Cochera Inteligente - Sistema de Estacionamiento IoT |
-| **Versión evaluada** | 1.0 (Proyecto académico - Maestría en Sistemas Embebidos) |
-| **Fecha del análisis** | Marzo 2026 |
-| **Tipo de aplicación** | Sistema Web + IoT con comunicación en tiempo real |
-| **Framework principal** | .NET 8 (Blazor Server) |
-| **Base de datos** | PostgreSQL 16 |
-| **Broker de mensajería** | RabbitMQ 3.13+ con plugin MQTT |
-| **Hardware IoT** | ESP32 DevKit V1 con sensores HC-SR04 |
+**Cochera Inteligente** es un sistema de gestión de estacionamiento basado en IoT que integra sensores ultrasónicos (ESP32), un broker de mensajería MQTT (RabbitMQ), y una aplicación web en tiempo real construida con ASP.NET Core 8.0 y Blazor Server.
 
-## 1.2 Objetivo del Sistema
+> **Actualización Marzo 2026:** El sistema ahora cuenta con **autenticación real** basada en ASP.NET Core Identity con cookies HTTP-only, roles (Admin/User), hashing de contraseñas con PBKDF2, y autorización en rutas y hub SignalR.
 
-El sistema **Cochera Inteligente** automatiza la gestión de un estacionamiento de 2 cajones mediante la integración de sensores ultrasónicos (HC-SR04) en un microcontrolador ESP32, que comunica eventos en tiempo real a una aplicación web. El sistema permite:
+---
 
-- **Detección automática** de vehículos en cajones y entrada mediante sensores ultrasónicos
-- **Gestión de sesiones** de estacionamiento con cálculo de tarifas por minuto
-- **Procesamiento de pagos** con múltiples métodos (efectivo, tarjeta, transferencia)
-- **Dashboard administrativo** con estadísticas y reportes en tiempo real
-- **Notificaciones en tiempo real** vía SignalR entre administradores y usuarios
+## 1.2 Arquitectura del Sistema
 
-## 1.3 Arquitectura General
-
-El sistema sigue una **Clean Architecture** con 5 proyectos .NET y un firmware embebido:
+### 1.2.1 Diagrama de Componentes
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        CAPA DE PRESENTACIÓN                      │
-│  ┌──────────────────────┐    ┌──────────────────────┐            │
-│  │   Cochera.Web         │    │   Cochera.Worker      │            │
-│  │   (Blazor Server)     │    │   (BackgroundService)  │            │
-│  │   Puerto: 5000        │    │                        │            │
-│  │   SignalR Hub          │◄──│   Cliente SignalR       │            │
-│  └──────────┬────────────┘    └──────────┬────────────┘            │
-├─────────────┼────────────────────────────┼─────────────────────────┤
-│             │       CAPA DE APLICACIÓN   │                         │
-│  ┌──────────▼────────────────────────────▼────────────┐            │
-│  │              Cochera.Application                    │            │
-│  │   Servicios: Sesion, Evento, Cajon, Tarifa, etc.   │            │
-│  └────────────────────────┬───────────────────────────┘            │
-├───────────────────────────┼────────────────────────────────────────┤
-│             │       CAPA DE INFRAESTRUCTURA                        │
-│  ┌──────────▼────────────────────────────────────────┐             │
-│  │              Cochera.Infrastructure                │             │
-│  │   EF Core + PostgreSQL | MQTT Consumer | Repos    │             │
-│  └───────────────────────────────────────────────────┘             │
-├────────────────────────────────────────────────────────────────────┤
-│                         CAPA DE DOMINIO                            │
-│  ┌───────────────────────────────────────────────────┐             │
-│  │              Cochera.Domain                        │             │
-│  │   Entidades | Enums | Interfaces de Repositorio   │             │
-│  └───────────────────────────────────────────────────┘             │
-└────────────────────────────────────────────────────────────────────┘
-
-           ▲                                  ▲
-           │ MQTT (puerto 1883, sin TLS)      │ HTTP (puerto 5000)
-           │                                  │
-    ┌──────┴──────┐                    ┌──────┴──────┐
-    │  RabbitMQ    │                    │  Navegador   │
-    │  (Broker)    │                    │  del Usuario │
-    └──────┬──────┘                    └─────────────┘
-           │
-    ┌──────┴──────┐
-    │   ESP32      │
-    │ + HC-SR04 x3 │
-    │ + LEDs/Buzzer│
-    └─────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        SISTEMA COCHERA INTELIGENTE                          │
+│                                                                             │
+│  ┌──────────┐    MQTT (1883)    ┌─────────────┐    EF Core    ┌──────────┐ │
+│  │  ESP32   │ ───────────────►  │  RabbitMQ   │               │PostgreSQL│ │
+│  │(Sensores)│   Plaintext       │  (Broker)   │               │          │ │
+│  └──────────┘                   └──────┬──────┘               └─────┬────┘ │
+│                                        │ MQTT                       │      │
+│                                  ┌─────▼──────┐              ┌─────▼────┐  │
+│                                  │  Cochera    │──── Repos ──►│ Cochera  │  │
+│                                  │  Worker     │              │ Infra    │  │
+│                                  └─────┬──────┘              └──────────┘  │
+│                                        │ HTTP (SignalR)                     │
+│                                  ┌─────▼──────┐                            │
+│  ┌──────────┐   WSS/HTTPS       │  Cochera    │                            │
+│  │Navegador │ ◄───────────────► │  Web        │                            │
+│  │ (Blazor) │   Cookie Auth     │ (.NET 8)    │                            │
+│  └──────────┘                   └─────────────┘                            │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-## 1.4 Tipo de Usuarios
-
-El sistema define dos roles sin autenticación formal:
-
-| Rol | Código de acceso | Permisos | Método de identificación |
-|-----|-----------------|----------|-------------------------|
-| **Administrador** | `admin` | Dashboard, gestión de entrada/salida, sesiones, tarifas, reportes, eventos | Selección manual en dropdown (sin contraseña) |
-| **Usuario regular** | `usuario_1`, `usuario_2`, `usuario_3` | Ver estacionamiento propio, historial personal, confirmar pagos | Selección manual en dropdown (sin contraseña) |
-
-**Hallazgo crítico:** No existe un sistema de autenticación. Los usuarios se seleccionan de un menú desplegable (`UserSelector`) sin verificación de identidad.
-
-## 1.5 Principales Módulos y Componentes
-
-### Backend (.NET 8)
-
-| Módulo | Responsabilidad | Archivos clave |
-|--------|----------------|----------------|
-| **Cochera.Domain** | Entidades (8), enums (4), interfaces de repositorio (9) | `Entities/*.cs`, `Enums/*.cs`, `Interfaces/*.cs` |
-| **Cochera.Application** | Lógica de negocio (7 servicios), DTOs (8) | `Services/*.cs`, `DTOs/*.cs` |
-| **Cochera.Infrastructure** | Acceso a datos, MQTT, repositorios | `Data/CocheraDbContext.cs`, `Mqtt/*.cs`, `Repositories/*.cs` |
-| **Cochera.Web** | UI Blazor Server, SignalR Hub, 12 páginas | `Components/Pages/**/*.razor`, `Hubs/CocheraHub.cs` |
-| **Cochera.Worker** | Consumidor MQTT, puente SignalR | `MqttWorker.cs`, `SignalRNotificationService.cs` |
-
-### Firmware (ESP32)
-
-| Componente | Función |
-|-----------|---------|
-| Sensores HC-SR04 (x3) | Detección de vehículos (entrada + 2 cajones) |
-| LEDs (verde/rojo) | Indicadores visuales de disponibilidad |
-| Buzzer | Señales acústicas diferenciadas |
-| WiFi + MQTT | Comunicación con el backend |
-
-### Servicios Externos
-
-| Servicio | Puerto | Protocolo | Función |
-|----------|--------|-----------|---------|
-| PostgreSQL 16 | 5432 | TCP | Base de datos principal |
-| RabbitMQ | 5672 (AMQP), 1883 (MQTT), 15672 (Management) | TCP/HTTP | Broker de mensajería |
-
-## 1.6 Flujo de Datos Principal
+### 1.2.2 Arquitectura Clean Architecture
 
 ```
-1. ESP32 detecta vehículo → publica JSON en topic MQTT "cola_sensores"
-2. RabbitMQ recibe mensaje → enruta al consumidor suscrito
-3. Cochera.Worker consume mensaje MQTT → invoca EventoSensorService
-4. EventoSensorService procesa → actualiza DB (eventos, cajones, estado)
-5. Worker envía notificación → SignalR Hub → clientes web conectados
-6. Blazor actualiza UI en tiempo real para administradores y usuarios
-7. Admin gestiona sesiones → usuario recibe notificación de pago pendiente
-8. Usuario confirma pago → admin recibe confirmación → sesión finalizada
+┌────────────────────────────────────────────────┐
+│              Cochera.Web (Presentación)          │
+│  - Blazor Server (InteractiveServer)            │
+│  - ASP.NET Core Identity (Auth)          🔒 NEW │
+│  - SignalR Hub con [Authorize]           🔒 NEW │
+│  - Login.razor (form HTML POST)          🔒 NEW │
+│  - AuthorizeRouteView                    🔒 NEW │
+├────────────────────────────────────────────────┤
+│              Cochera.Worker (Background)         │
+│  - MqttWorker (BackgroundService)               │
+│  - SignalRNotificationService                   │
+├────────────────────────────────────────────────┤
+│            Cochera.Application (Servicios)       │
+│  - DTOs, Interfaces, Services                   │
+│  - Sin validación de ownership ⚠️               │
+├────────────────────────────────────────────────┤
+│             Cochera.Domain (Entidades)           │
+│  - Entities, Enums, Repository Interfaces       │
+├────────────────────────────────────────────────┤
+│          Cochera.Infrastructure (Datos)          │
+│  - CocheraDbContext (IdentityDbContext)   🔒 NEW │
+│  - PasswordHasher seed data              🔒 NEW │
+│  - Roles y UserRoles seed                🔒 NEW │
+│  - Repositories, MQTT, RabbitMQ                 │
+└────────────────────────────────────────────────┘
 ```
 
-## 1.7 Justificación de la Elección del Sistema
+---
 
-Este sistema fue elegido para el análisis de seguridad por las siguientes razones:
+## 1.3 Stack Tecnológico
 
-1. **Superficie de ataque amplia:** Combina una aplicación web, un servicio de background, un broker de mensajería (RabbitMQ/MQTT), una base de datos (PostgreSQL), comunicación en tiempo real (SignalR) y un dispositivo IoT (ESP32). Esto proporciona múltiples vectores de ataque para analizar.
+| Componente | Tecnología | Versión | Notas de Seguridad |
+|-----------|-----------|---------|---------------------|
+| Framework | ASP.NET Core | 8.0 | LTS, soporte hasta Nov 2026 |
+| Frontend | Blazor Server | 8.0 | InteractiveServer render mode |
+| **Autenticación** | **ASP.NET Core Identity** | **8.0** | 🔒 **Implementado** — IdentityUser, IdentityRole, PasswordHasher (PBKDF2) |
+| **Cookies** | **Cookie Authentication** | **8.0** | 🔒 **Implementado** — HttpOnly, 8h expiry, SlidingExpiration |
+| Componentes UI | Radzen Blazor | 5.x | Componentes de terceros |
+| ORM | Entity Framework Core | 8.0 | Npgsql provider |
+| Base de datos | PostgreSQL | 16.x | Acceso con superusuario ⚠️ |
+| Mensajería | RabbitMQ (MQTT Plugin) | — | Sin TLS ⚠️ |
+| MQTT Client | MQTTnet | 4.3.3 | Sin cifrado ⚠️ |
+| Tiempo real | SignalR | 8.0 | WebSocket con [Authorize] parcial |
+| Firmware | Arduino/ESP32 | — | Credenciales hardcoded ⚠️ |
 
-2. **Protocolos heterogéneos:** El sistema utiliza HTTP, WebSocket (SignalR), MQTT y TCP (PostgreSQL), cada uno con sus propias consideraciones de seguridad.
+---
 
-3. **Datos sensibles:** Maneja información de pagos, sesiones de usuarios e información de identificación que requieren protección adecuada.
+## 1.4 Flujos de Datos Críticos
 
-4. **IoT como vector de ataque:** El ESP32 se comunica por WiFi y MQTT en texto plano, representando un punto de entrada potencial para atacantes en la red local.
-
-5. **Acceso completo al código fuente:** Se tiene acceso total al código fuente de todas las capas (código .NET y firmware Arduino C++), archivos de configuración y esquema de base de datos, lo que permite un análisis de caja blanca exhaustivo.
-
-6. **Representatividad:** Las vulnerabilidades encontradas son representativas de problemas comunes en proyectos IoT + Web, lo que permite extraer aprendizajes aplicables a la industria.
-
-## 1.8 Nivel de Acceso para la Evaluación
-
-| Aspecto | Nivel de acceso |
-|---------|----------------|
-| Código fuente (.NET) | Completo (caja blanca) |
-| Código fuente (ESP32/Arduino) | Completo (caja blanca) |
-| Archivos de configuración | Completo (incluyendo credenciales) |
-| Base de datos (esquema + datos) | Completo (incluyendo datos semilla) |
-| Broker MQTT/RabbitMQ | Configuración completa |
-| Infraestructura de red | Topología conocida (red local) |
-| Dependencias y paquetes NuGet | Lista completa con versiones |
-
-Este nivel de acceso permite realizar un análisis de seguridad de **caja blanca** completo, combinando revisión manual del código, análisis estático (SAST) y recomendaciones para análisis dinámico (DAST).
-
-## 1.9 Resumen de la Superficie de Ataque
+### 1.4.1 Flujo de Autenticación (🔒 NUEVO)
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                   SUPERFICIE DE ATAQUE                       │
-├─────────────────┬───────────────────────────────────────────┤
-│ Capa Web        │ • Puerto 5000 HTTP (sin HTTPS forzado)    │
-│                 │ • SignalR Hub sin autenticación             │
-│                 │ • Blazor Server con estado en servidor      │
-│                 │ • Selector de usuario sin contraseña        │
-│                 │ • AllowedHosts: "*"                        │
-├─────────────────┼───────────────────────────────────────────┤
-│ Capa MQTT/IoT   │ • Puerto 1883 MQTT sin TLS                │
-│                 │ • Credenciales hardcoded (esp32/123456)    │
-│                 │ • Sin validación de origen de mensajes     │
-│                 │ • WiFi credentials en firmware              │
-├─────────────────┼───────────────────────────────────────────┤
-│ Base de Datos   │ • PostgreSQL con user postgres/postgres    │
-│                 │ • Puerto 5432 expuesto                     │
-│                 │ • Sin cifrado de datos sensibles            │
-├─────────────────┼───────────────────────────────────────────┤
-│ RabbitMQ        │ • Management UI en puerto 15672            │
-│                 │ • Credenciales por defecto guest/guest     │
-│                 │ • AMQP sin TLS en puerto 5672              │
-├─────────────────┼───────────────────────────────────────────┤
-│ Firmware ESP32  │ • Credenciales WiFi en texto plano         │
-│                 │ • Sin OTA seguro                            │
-│                 │ • Sin validación de certificados            │
-│                 │ • Puerto serial expuesto                    │
-└─────────────────┴───────────────────────────────────────────┘
+┌────────────┐     GET /login      ┌──────────────┐
+│  Navegador │ ──────────────────► │  Login.razor  │
+│            │ ◄────────────────── │  (HTML form)  │
+│            │     HTML estático    └──────────────┘
+│            │
+│            │    POST /auth/login   ┌──────────────────────────┐
+│            │ ────────────────────► │ Minimal API Endpoint     │
+│            │    Form data          │ SignInManager             │
+│            │    (username/password) │   .PasswordSignInAsync() │
+│            │                       └──────────┬───────────────┘
+│            │                                  │
+│            │    Set-Cookie: Cochera.Auth=...   │ (success)
+│            │    302 Redirect /               ◄┘
+│            │ ◄──────────────────────────────── 
+│            │                                    (failure)
+│            │    302 Redirect /login?error=1   ◄┘
+│            │ ◄──────────────────────────────── 
+└────────────┘
+
+Nota: El login usa HTTP POST fuera del circuito interactivo de Blazor
+para evitar la excepción de cookies en componentes InteractiveServer.
 ```
+
+### 1.4.2 Flujo de Datos IoT → Web
+
+```
+ESP32 (sensores) 
+    → MQTT plaintext (puerto 1883) 
+        → RabbitMQ 
+            → Cochera.Worker (MqttWorker) 
+                → HTTP POST a SignalR Hub 
+                    → [Sin clase-level Authorize] ⚠️
+                        → Clients.All.SendAsync("RecibirEvento") 
+                            → Blazor UI actualiza en tiempo real
+```
+
+### 1.4.3 Flujo de Sesión de Estacionamiento
+
+```
+Admin detecta vehículo → Crea sesión (cajonId, usuarioId)
+    → SignalR notifica a Admin (grupo "admins") 
+    → SignalR notifica a Usuario (grupo "usuario_{id}")
+        → [Authorize] valida identidad ✅
+
+Admin solicita cierre → Usuario recibe notificación
+    → Usuario confirma pago → Admin recibe confirmación
+        → Admin cierra sesión → Ambos notificados
+```
+
+---
+
+## 1.5 Usuarios y Roles del Sistema
+
+### 1.5.1 Modelo de Usuarios (Actualizado)
+
+El sistema ahora gestiona dos modelos de usuario paralelos:
+
+| Modelo | Propósito | Autenticación |
+|--------|----------|---------------|
+| `IdentityUser` | Autenticación (ASP.NET Core Identity) | PasswordHash (PBKDF2-HMAC-SHA256) |
+| `Usuario` (dominio) | Lógica de negocio (sesiones, pagos) | Vinculado por `Codigo` |
+
+### 1.5.2 Usuarios Seed
+
+| IdentityUser (UserName) | Rol | Usuario Dominio (Codigo) | Contraseña |
+|-------------------------|-----|--------------------------|------------|
+| `admin` | Admin | `admin` (Id=1) | `Admin12345` |
+| `usuario_1` | User | `usuario_1` (Id=2) | `Usuario12345` |
+| `usuario_2` | User | `usuario_2` (Id=3) | `Usuario12345` |
+| `usuario_3` | User | `usuario_3` (Id=4) | `Usuario12345` |
+
+> **⚠️ Observación de seguridad:** Las contraseñas se muestran en la página de login como "usuarios de prueba". `LockoutEnabled = false` en los usuarios seed desactiva la protección contra fuerza bruta.
+
+### 1.5.3 Roles y Permisos
+
+| Rol | Páginas Accesibles | Hub SignalR |
+|-----|-------------------|-------------|
+| **Admin** | Dashboard, Gestión Entrada/Salida, Sesiones, Historial, Eventos, Tarifas, Cajones, Reportes | `UnirseComoAdmin()` [Authorize(Roles="Admin")], auto-join grupo "admins" |
+| **User** | Mi Estacionamiento, Mis Pagos, Mi Historial | `UnirseComoUsuario(id)` [Authorize] con validación de identidad |
+| **Anónimo** | Login, AccessDenied | Ninguno |
+
+---
+
+## 1.6 Superficie de Ataque
+
+### 1.6.1 Puntos de Entrada (Actualizado)
+
+| # | Punto de Entrada | Protocolo | Autenticación | Estado |
+|---|-----------------|-----------|---------------|--------|
+| 1 | `POST /auth/login` | HTTPS | Público (AntiForgery deshabilitado) | 🔒 Nuevo |
+| 2 | `GET /logout` | HTTPS | Autenticado | 🔒 Nuevo |
+| 3 | `/cocherahub` (SignalR) | WSS | Parcial — métodos protegidos, clase no | ⚠️ Mejorado |
+| 4 | Páginas Blazor (`/admin/*`, `/usuario/*`) | HTTPS | `[Authorize(Roles)]` vía `AuthorizeRouteView` | 🔒 Nuevo |
+| 5 | `/login` | HTTPS | Público | 🔒 Nuevo |
+| 6 | MQTT broker (puerto 1883) | TCP plano | Basic auth (user/pass) | ❌ Sin cifrar |
+| 7 | PostgreSQL (puerto 5432) | TCP | Superusuario `postgres` | ❌ Inseguro |
+| 8 | WiFi ESP32 | WPA2 | Credenciales hardcoded | ❌ Inseguro |
+
+### 1.6.2 Datos Sensibles Identificados
+
+| Dato | Ubicación | Protección Actual |
+|------|-----------|-------------------|
+| Contraseñas de usuarios | PostgreSQL (tabla `AspNetUsers`) | ✅ Hash PBKDF2 (PasswordHasher) |
+| Cookie de sesión | Navegador → Servidor | ✅ HttpOnly, SlidingExpiration 8h |
+| Credenciales BD | `appsettings.json` | ❌ Texto plano (`postgres/postgres`) |
+| Credenciales MQTT broker | `appsettings.json` (Worker) | ❌ Texto plano |
+| Credenciales WiFi/MQTT | `sketch_jan16a.ino` | ❌ Hardcoded (`esp32/123456`) |
+| Datos de sensores | Tránsito MQTT → DB | ❌ Sin cifrado en tránsito |
+| Seed passwords | `CocheraDbContext.cs` | ⚠️ En código fuente pero hasheadas en BD |
+
+---
+
+## 1.7 Alcance del Análisis de Seguridad
+
+### 1.7.1 Archivos Analizados (17 archivos)
+
+**Cochera.Web (10 archivos):**
+- `Program.cs` — Startup, Identity, Auth middleware, endpoints login/logout
+- `Hubs/CocheraHub.cs` — SignalR hub con [Authorize] parcial
+- `Services/UsuarioActualService.cs` — Servicio de usuario actual (usa AuthenticationStateProvider)
+- `Components/Pages/Login.razor` — Página de login (form HTML POST)
+- `Components/Pages/AccessDenied.razor` — Página de acceso denegado
+- `Components/RedirectToLogin.razor` — Componente de redirección
+- `Components/Routes.razor` — AuthorizeRouteView
+- `Components/App.razor` — CascadingAuthenticationState
+- `Components/Layout/MainLayout.razor` — Layout con AuthorizeView
+- `appsettings.json` — Configuración con credenciales
+
+**Cochera.Infrastructure (2 archivos):**
+- `Data/CocheraDbContext.cs` — IdentityDbContext con seed de roles/usuarios
+- `Mqtt/MqttConsumerService.cs` — Cliente MQTT sin TLS
+
+**Cochera.Application (3 archivos):**
+- `Services/SesionService.cs` — Gestión de sesiones (sin filtro por usuario)
+- `Services/EventoSensorService.cs` — Eventos de sensores
+- `Services/UsuarioService.cs` — Gestión de usuarios
+
+**Cochera.Worker (1 archivo):**
+- `MqttWorker.cs` — Background service para MQTT
+
+**Firmware (1 archivo):**
+- `sketch_jan16a.ino` — Firmware ESP32 con credenciales hardcoded
+
+### 1.7.2 Marcos de Referencia
+
+| Marco | Aplicación |
+|-------|-----------|
+| OWASP Top 10:2021 | Clasificación de vulnerabilidades web |
+| OWASP IoT Top 10:2018 | Clasificación de vulnerabilidades IoT |
+| CWE/SANS Top 25 | Identificación de debilidades de código |
+| CVSS v3.1 | Puntuación de severidad |
+| OWASP SAMM | Evaluación de madurez de seguridad |
+
+---
+
+*Siguiente: [02 — Amenazas y Vulnerabilidades (OWASP)](02-amenazas-y-vulnerabilidades-owasp.md)*

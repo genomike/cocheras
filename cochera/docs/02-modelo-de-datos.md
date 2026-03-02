@@ -10,6 +10,35 @@ El modelo de datos está diseñado siguiendo los principios de **Domain-Driven D
 
 ## 2. Entidades del Dominio
 
+### 2.0 Entidades de ASP.NET Core Identity
+
+El sistema utiliza **ASP.NET Core Identity** para autenticación. El `CocheraDbContext` hereda de `IdentityDbContext<IdentityUser>`, lo que agrega las siguientes tablas gestionadas automáticamente por Identity:
+
+| Tabla | Descripción |
+|-------|-------------|
+| `AspNetUsers` | Usuarios de Identity (IdentityUser) con email, password hash, lockout, etc. |
+| `AspNetRoles` | Roles del sistema: `Admin` y `User` |
+| `AspNetUserRoles` | Relación N:N entre usuarios y roles |
+| `AspNetUserClaims` | Claims adicionales de usuario |
+| `AspNetUserLogins` | Logins externos (OAuth) - no utilizado actualmente |
+| `AspNetUserTokens` | Tokens de recuperación/confirmación |
+| `AspNetRoleClaims` | Claims asociados a roles |
+
+#### Datos Semilla de Identity
+
+| Email (UserName) | Contraseña | Rol | Hash |
+|------------------|-----------|-----|------|
+| admin@cochera.com | Admin123! | Admin | PBKDF2-HMAC-SHA256 |
+| user1@cochera.com | User123! | User | PBKDF2-HMAC-SHA256 |
+| user2@cochera.com | User123! | User | PBKDF2-HMAC-SHA256 |
+| user3@cochera.com | User123! | User | PBKDF2-HMAC-SHA256 |
+
+> **Política de contraseñas**: Mínimo 8 caracteres, requiere mayúscula, minúscula y dígito.
+
+#### Relación Identity ↔ Usuario de Dominio
+
+Los usuarios de Identity (`AspNetUsers`) están **desacoplados** de la entidad `Usuario` del dominio. El `UsuarioActualService` resuelve el usuario de dominio a partir del claim `ClaimTypes.Email` del `ClaimsPrincipal` autenticado, buscando por código equivalente.
+
 ### 2.1 BaseEntity (Clase Abstracta)
 
 Todas las entidades heredan de `BaseEntity`, proporcionando campos comunes de auditoría.
@@ -252,10 +281,10 @@ SesionEstacionamiento (1) ── (0..1) Pago      │ Una sesión puede tener un
 
 ### 5.1 DbContext
 
-El `CocheraDbContext` configura:
+El `CocheraDbContext` hereda de `IdentityDbContext<IdentityUser>` (en vez del simple `DbContext`), integrando las tablas de Identity con las entidades de dominio. Configura:
 - **Fluent API** para mapeo de entidades (no usa Data Annotations)
 - **Precisión decimal**: (18, 2) para montos monetarios
-- **Seed Data**: Datos iniciales para usuarios, cajones, tarifa y estado
+- **Seed Data**: Datos iniciales para usuarios de dominio, cajones, tarifa, estado, roles de Identity y usuarios de Identity con contraseñas hasheadas vía `PasswordHasher<IdentityUser>`
 - **Auditoría automática**: `FechaCreacion` y `FechaActualizacion`
 
 ### 5.2 Cadena de Conexión

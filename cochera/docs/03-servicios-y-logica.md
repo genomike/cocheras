@@ -8,7 +8,48 @@ La capa de **Application** contiene toda la lógica de negocio del sistema. Los 
 
 ---
 
-## 2. Servicios de Aplicación
+## 2. Autenticación y Autorización
+
+El sistema implementa **ASP.NET Core Identity** con autenticación por cookies, integrado en el flujo Blazor Server.
+
+### 2.1 Flujo de Login
+
+```
+1. Usuario accede a cualquier ruta protegida
+2. <AuthorizeRouteView> detecta usuario no autenticado
+3. <RedirectToLogin /> redirige a /login
+4. Login.razor muestra formulario HTML estático
+5. POST /auth/login (Minimal API, fuera del circuito Blazor)
+6. SignInManager.PasswordSignInAsync() valida credenciales
+7. Cookie "Cochera.Auth" se emite (HttpOnly, SlidingExpiration 8h)
+8. Redirect a returnUrl o ruta de inicio según rol
+```
+
+### 2.2 UsuarioActualService
+
+**Responsabilidad:** Resolver el usuario de dominio a partir de la identidad autenticada.
+
+| Método | Descripción |
+|--------|-------------|
+| `RefrescarDesdeIdentidadAsync()` | Lee claims del `AuthenticationStateProvider`, busca usuario de dominio por código |
+| `CambiarUsuarioAsync(int?)` | Invoca `RefrescarDesdeIdentidadAsync()` para recargar la identidad |
+| `ObtenerUsuarioActualAsync()` | Retorna el `UsuarioDto` del usuario autenticado |
+
+> **Cambio respecto a la versión anterior**: Ya no usa `ProtectedSessionStorage` ni selector de usuario. La identidad se obtiene exclusivamente del `ClaimsPrincipal` autenticado.
+
+### 2.3 Logout
+
+```
+1. Usuario hace click en "Cerrar Sesión" (MainLayout.razor)
+2. NavigationManager.NavigateTo("/logout", forceLoad: true)
+3. GET /logout (Minimal API)
+4. SignInManager.SignOutAsync() elimina la cookie
+5. Redirect a /login
+```
+
+---
+
+## 3. Servicios de Aplicación
 
 ### 2.1 EventoSensorService
 
@@ -286,8 +327,13 @@ El Worker es un servicio independiente que:
 
 **Endpoint:** `/cocherahub`
 
+**Autorización:**
+- `[Authorize(Roles = "Admin")]` en `UnirseComoAdmin()` — solo administradores
+- `[Authorize]` en `UnirseComoUsuario(int)` — con validación de que el `userId` coincide con la identidad del claim
+- `OnConnectedAsync()` asigna automáticamente el usuario a su grupo basado en claims del `Context.User`
+
 **Grupos:**
-- `admins` → Usuarios con EsAdmin = true
+- `admins` → Usuarios con rol Admin
 - `usuario_{id}` → Cada usuario regular en su grupo individual
 
 #### Métodos del Hub (Server → Client)

@@ -228,23 +228,83 @@ ESP32 (Sensor)
 | MQTT Client (.NET) | MQTTnet | 4.3.3 |
 | RabbitMQ Client | RabbitMQ.Client | 6.8.1 |
 | Mediator | MediatR | 12.2.0 |
+| Autenticación | ASP.NET Core Identity | 8.0 |
+| Hash de Contraseñas | PBKDF2-HMAC-SHA256 (Identity v3) | - |
 
 ---
 
-## 8. Seguridad y Consideraciones
+## 8. Seguridad y Autenticación
 
-### 8.1 Autenticación
-- **Sistema actual**: Selector de usuario en sesión (sin autenticación formal)
-- Usuarios predefinidos vía seed data (admin, usuario_1, usuario_2, usuario_3)
-- `UsuarioActualService` gestiona la sesión del usuario en `ProtectedSessionStorage`
+### 8.1 Sistema de Autenticación (ASP.NET Core Identity)
 
-### 8.2 Comunicación MQTT
+El sistema implementa **autenticación real** basada en ASP.NET Core Identity con cookies:
+
+- **Framework**: `Microsoft.AspNetCore.Identity.EntityFrameworkCore`
+- **Almacenamiento**: `IdentityDbContext<IdentityUser>` sobre PostgreSQL
+- **Hash de contraseñas**: PBKDF2-HMAC-SHA256 (Identity v3)
+- **Roles**: `Admin` y `User` con autorización basada en roles
+- **Cookie**: `Cochera.Auth` con `HttpOnly`, `SlidingExpiration` (8 horas)
+
+#### Flujo de Autenticación
+
+```
+Usuario → GET /login → Login.razor (formulario HTML)
+       → POST /auth/login → Minimal API endpoint
+       → SignInManager.PasswordSignInAsync()
+       → Cookie de sesión → Redirect a /admin/dashboard o /usuario/estacionamiento
+```
+
+> **Nota de diseño**: El login se ejecuta como HTTP POST fuera del circuito Blazor para evitar la excepción `"Headers are read-only, response has already started"` inherente a Blazor Server.
+
+#### Protección de Rutas
+
+- `<AuthorizeRouteView>` en `Routes.razor` protege todas las rutas
+- `<CascadingAuthenticationState>` en `App.razor` propaga el estado de autenticación
+- Usuarios no autenticados son redirigidos a `/login` automáticamente
+
+#### Configuración de Contraseñas
+
+```csharp
+options.Password.RequireDigit = true;
+options.Password.RequireUppercase = true;
+options.Password.RequireLowercase = true;
+options.Password.RequiredLength = 8;
+```
+
+#### Datos Semilla de Identity
+
+| Email | Contraseña | Rol | Vinculado a |
+|-------|-----------|-----|-------------|
+| admin@cochera.com | Admin123! | Admin | Administrador |
+| user1@cochera.com | User123! | User | Usuario 1 |
+| user2@cochera.com | User123! | User | Usuario 2 |
+| user3@cochera.com | User123! | User | Usuario 3 |
+
+### 8.2 Autorización en SignalR Hub
+
+- `CocheraHub` aplica `[Authorize(Roles = "Admin")]` en `UnirseComoAdmin()`
+- `[Authorize]` en `UnirseComoUsuario()` con validación de identidad del claim
+- Asignación automática de grupos en `OnConnectedAsync()` basada en claims
+
+### 8.3 Servicio de Usuario Actual
+
+`UsuarioActualService` ya no usa `ProtectedSessionStorage`. Ahora obtiene la identidad del `AuthenticationStateProvider` y resuelve el usuario de dominio desde los claims del `ClaimsPrincipal`.
+
+### 8.4 Comunicación MQTT
 - Autenticación por usuario/contraseña en el broker MQTT
 - Credenciales: `esp32` / `123456` (ambiente de desarrollo)
+- ⚠️ **Sin TLS**: La comunicación MQTT se realiza en texto plano (puerto 1883)
 
-### 8.3 Base de Datos
+### 8.5 Base de Datos
 - Cadena de conexión en `appsettings.json`
 - Migraciones automáticas al iniciar la aplicación web
+- ⚠️ Credenciales de superusuario PostgreSQL (`postgres/postgres`)
+
+### 8.6 Análisis de Seguridad Completo
+
+Para el análisis detallado de vulnerabilidades OWASP, pruebas SAST/DAST y plan de mejoras, consultar:
+
+📂 [docs/analisis_seguridad/](analisis_seguridad/README.md)
 
 ---
 
@@ -252,8 +312,11 @@ ESP32 (Sensor)
 
 ### Puntos de Extensión
 1. **Más cajones**: Agregar sensores al ESP32 y registrar nuevos cajones en BD
-2. **Autenticación**: Integrar ASP.NET Identity o un proveedor OAuth
+2. ~~**Autenticación**: Integrar ASP.NET Identity~~ ✅ **Implementado** — ASP.NET Core Identity con roles
 3. **Notificaciones móviles**: Agregar push notifications via Firebase
 4. **Múltiples cocheras**: Extender el modelo para soportar múltiples ubicaciones
 5. **Métricas avanzadas**: Integrar con sistemas de BI o dashboards externos
 6. **API REST**: Agregar controladores API para integraciones externas
+7. **HTTPS/TLS**: Migrar MQTT y la app web a comunicación cifrada
+8. **Rate Limiting**: Implementar limitación de intentos de login
+9. **CSRF Protection**: Habilitar antiforgery tokens en el endpoint de login

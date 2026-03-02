@@ -284,8 +284,11 @@ dotnet ef database update --project Cochera.Infrastructure --startup-project Coc
 
 Esto creará:
 - Todas las tablas del modelo
+- **Tablas de ASP.NET Core Identity**: `AspNetUsers`, `AspNetRoles`, `AspNetUserRoles`, etc.
 - **Datos semilla:**
-  - 4 usuarios (1 admin + 3 regulares)
+  - 4 usuarios de Identity con contraseñas hasheadas (PBKDF2-HMAC-SHA256)
+  - 2 roles: `Admin` y `User`
+  - 4 usuarios de dominio (1 admin + 3 regulares)
   - 2 cajones (Libre)
   - 1 tarifa ($8.00/min, activa)
   - 1 estado de cochera (vacía)
@@ -305,8 +308,21 @@ La aplicación estará disponible en: **http://localhost:5000**
 
 ### Verificar que funciona:
 1. Abrir el navegador en http://localhost:5000
-2. Debe cargar la interfaz de Cochera Inteligente
-3. El panel lateral izquierdo muestra la navegación
+2. Debe redirigir automáticamente a la página de **Login** (`/login`)
+3. Iniciar sesión con las credenciales de prueba
+
+### Credenciales de Acceso
+
+El sistema crea usuarios de prueba automáticamente al ejecutar las migraciones:
+
+| Email | Contraseña | Rol | Acceso |
+|-------|-----------|-----|--------|
+| admin@cochera.com | Admin123! | Administrador | Panel completo de administración |
+| user1@cochera.com | User123! | Usuario | Vista de estacionamiento y pagos |
+| user2@cochera.com | User123! | Usuario | Vista de estacionamiento y pagos |
+| user3@cochera.com | User123! | Usuario | Vista de estacionamiento y pagos |
+
+> **Nota de seguridad**: Estas credenciales son exclusivamente para desarrollo/pruebas. En producción deben cambiarse inmediatamente.
 
 ### Páginas Disponibles
 
@@ -432,7 +448,8 @@ Sistema iniciado - Cochera Inteligente
 | 3 | RabbitMQ corriendo | http://localhost:15672 (guest/guest) |
 | 4 | Plugin MQTT habilitado | RabbitMQ Management → Overview → Puertos (1883) |
 | 5 | Usuario esp32 creado | RabbitMQ Management → Admin → Users |
-| 6 | Cochera.Web corriendo | http://localhost:5000 |
+| 6 | Cochera.Web corriendo | http://localhost:5000 (redirige a /login) |
+| 7 | Login funciona | Iniciar sesión con admin@cochera.com / Admin123! |
 | 7 | Cochera.Worker corriendo | Logs en terminal muestran "MQTT conectado" |
 | 8 | ESP32 conectado | Monitor Serie: "MQTT conectado!" |
 | 9 | Eventos llegando | Admin → Eventos (se muestran al mover la mano frente al sensor) |
