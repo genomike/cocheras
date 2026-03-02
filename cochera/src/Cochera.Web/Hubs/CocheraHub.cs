@@ -120,6 +120,26 @@ public class CocheraHub : Hub
 
     public override async Task OnConnectedAsync()
     {
+        if (Context.User?.Identity?.IsAuthenticated == true)
+        {
+            if (Context.User.IsInRole("Admin"))
+            {
+                await Groups.AddToGroupAsync(Context.ConnectionId, "admins");
+                _logger.LogInformation("👤 Admin auto-conectado al grupo 'admins': {ConnectionId}", Context.ConnectionId);
+            }
+
+            var codigo = Context.User.Identity.Name;
+            if (!string.IsNullOrWhiteSpace(codigo))
+            {
+                var usuario = await _usuarioService.GetByCodigoAsync(codigo);
+                if (usuario != null)
+                {
+                    await Groups.AddToGroupAsync(Context.ConnectionId, $"usuario_{usuario.Id}");
+                    _logger.LogInformation("👤 Usuario {UsuarioId} auto-conectado al grupo: {ConnectionId}", usuario.Id, Context.ConnectionId);
+                }
+            }
+        }
+
         _logger.LogInformation("🔌 Cliente conectado: {ConnectionId}", Context.ConnectionId);
         await Clients.Caller.SendAsync("Connected");
         await base.OnConnectedAsync();

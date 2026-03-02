@@ -375,12 +375,6 @@ else
             .WithAutomaticReconnect()
             .Build();
 
-        // Unirse al grupo de admins
-        hubConnection.On("Connected", async () =>
-        {
-            await hubConnection.InvokeAsync("UnirseComoAdmin");
-        });
-
         // Vehículo detectado - abrir automáticamente el diálogo
         hubConnection.On<EventoSensorDto>("VehiculoDetectadoEnEntrada", async (evento) =>
         {
@@ -459,7 +453,6 @@ else
         });
 
         await hubConnection.StartAsync();
-        await hubConnection.InvokeAsync("UnirseComoAdmin");
     }
 
     private void DescartarNotificacion(EventoSensorDto evento)

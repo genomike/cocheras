@@ -35,15 +35,20 @@ else
             <RadzenIcon Icon="dashboard" /> Dashboard Administrativo
         </RadzenText>
         <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
-            <RadzenButton Icon="refresh" Text="Actualizar" ButtonStyle="ButtonStyle.Light" Click="@LoadDashboard" />
+            <RadzenButton Icon="refresh" Text="Actualizar" ButtonStyle="ButtonStyle.Light" Click="@LoadDashboardSafe" />
             <RadzenButton Icon="add_circle" Text="ABRIR POPUP" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Large"
                 Click="@(() => MostrarPopupMovimiento(true, null))" />
         </RadzenStack>
     </RadzenStack>
 
-    @if (dashboard == null)
+    @if (isLoading)
     {
         <RadzenProgressBarCircular ShowValue="true" Mode="ProgressBarMode.Indeterminate" Size="ProgressBarCircularSize.Large" />
+    }
+    else if (!string.IsNullOrWhiteSpace(loadError) || dashboard == null)
+    {
+        <RadzenAlert AlertStyle="AlertStyle.Warning">@loadError</RadzenAlert>
+        <RadzenButton Icon="refresh" Text="Reintentar" ButtonStyle="ButtonStyle.Primary" Click="@LoadDashboardSafe" class="rz-mt-2" />
     }
     else
     {
@@ -216,6 +221,8 @@ else
     private DashboardDto? dashboard;
     private HubConnection? hubConnection;
     System.Timers.Timer? actualizadorAutomatico;
+    private bool isLoading = true;
+    private string? loadError;
 
     protected override async Task OnInitializedAsync()
     {
@@ -224,9 +231,11 @@ else
             Navigation.NavigateTo("/");
             return;
         }
-        
-        await LoadDashboard();
-        await SetupSignalR();
+
+        await LoadDashboardSafe();
+
+        _ = SetupSignalRSafe();
+
         SetupActualizadorAutomatico();
     }
     
@@ -236,10 +245,49 @@ else
         actualizadorAutomatico = new System.Timers.Timer(30000);
         actualizadorAutomatico.Elapsed += async (sender, e) =>
         {
-            await LoadDashboard();
+            await LoadDashboardSafe();
             await InvokeAsync(StateHasChanged);
         };
         actualizadorAutomatico.Start();
+    }
+
+    private async Task LoadDashboardSafe()
+    {
+        isLoading = true;
+        loadError = null;
+
+        try
+        {
+            await LoadDashboard();
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Error cargando dashboard");
+            loadError = "No se pudieron cargar los datos del dashboard.";
+            NotificationService.Notify(NotificationSeverity.Error, "Dashboard", "Error al cargar datos. Intenta actualizar.");
+        }
+        finally
+        {
+            isLoading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task SetupSignalRSafe()
+    {
+        try
+        {
+            await SetupSignalR();
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Error inicializando SignalR en Dashboard");
+            await InvokeAsync(() =>
+            {
+                NotificationService.Notify(NotificationSeverity.Warning, "Conexión en tiempo real", "No se pudo conectar a SignalR. El dashboard seguirá funcionando sin actualizaciones en vivo.");
+                StateHasChanged();
+            });
+        }
     }
 
     private async Task LoadDashboard()
@@ -380,10 +428,7 @@ else
         });
 
         await hubConnection.StartAsync();
-        
-        // ¡¡¡ UNIRSE AL GRUPO ADMINS !!!
-        await hubConnection.InvokeAsync("UnirseComoAdmin");
-        _logger?.LogInformation("✅ Dashboard unido al grupo 'admins'");
+        _logger?.LogInformation("✅ Dashboard conectado a SignalR");
     }
 
     private async Task MostrarPopupMovimiento(bool esEntrada, EventoSensorDto? evento = null)

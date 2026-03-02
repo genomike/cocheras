@@ -624,7 +624,6 @@ else
         });
 
         await hubConnection.StartAsync();
-        await hubConnection.InvokeAsync("UnirseComoUsuario", UsuarioActualService.UsuarioId.Value);
     }
 
     private void SetupActualizadorMonto()
