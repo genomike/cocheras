@@ -1,9 +1,10 @@
 @page "/"
-@using Cochera.Application.DTOs
 @using Cochera.Web.Services
 @using Radzen
 @using Radzen.Blazor
+@using Microsoft.AspNetCore.Components.Authorization
 @inject UsuarioActualService UsuarioActualService
+@inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
 @rendermode InteractiveServer
 
@@ -24,18 +25,21 @@
     {
         if (firstRender && !yaRedirigido)
         {
-            // Esperar a que el servicio se inicialice desde el storage
             await UsuarioActualService.InitializeAsync();
-            
-            // Redirigir según el tipo de usuario
-            if (UsuarioActualService.EstaLogueado)
+
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            if (authState.User.Identity?.IsAuthenticated == true)
             {
                 yaRedirigido = true;
-                if (UsuarioActualService.EsAdmin)
+                if (authState.User.IsInRole("Admin"))
                     NavigationManager.NavigateTo("/admin/dashboard", forceLoad: false);
                 else
                     NavigationManager.NavigateTo("/usuario/estacionamiento", forceLoad: false);
+                return;
             }
+
+            yaRedirigido = true;
+            NavigationManager.NavigateTo("/login", forceLoad: false);
         }
     }
 }

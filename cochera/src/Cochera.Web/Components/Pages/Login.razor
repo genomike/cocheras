@@ -1,0 +1,63 @@
+@page "/login"
+@using Microsoft.AspNetCore.WebUtilities
+@inject NavigationManager NavigationManager
+
+<PageTitle>Iniciar sesión</PageTitle>
+
+<div style="max-width: 420px; margin: 4rem auto; padding: 1.5rem; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff;">
+    <h3 style="margin-bottom: 1rem;">Iniciar sesión</h3>
+
+    <form method="post" action="/auth/login">
+        <div style="margin-bottom: 1rem;">
+            <label>Usuario</label>
+            <input name="username" class="form-control" required />
+        </div>
+
+        <div style="margin-bottom: 1rem;">
+            <label>Contraseña</label>
+            <input name="password" type="password" class="form-control" required />
+        </div>
+
+        <input type="hidden" name="returnUrl" value="@returnUrl" />
+
+        <button type="submit" class="btn btn-primary">
+            Ingresar
+        </button>
+    </form>
+
+    @if (hasError)
+    {
+        <div class="alert alert-danger" style="margin-top: 1rem;">Credenciales inválidas.</div>
+    }
+
+    <div style="margin-top: 1rem; font-size: .9rem; color: #374151;">
+        Usuarios de prueba:<br />
+        - admin / Admin12345<br />
+        - usuario_1 / Usuario12345
+    </div>
+</div>
+
+@code {
+    private bool hasError;
+    private string returnUrl = "/";
+
+    protected override void OnInitialized()
+    {
+        var uri = NavigationManager.ToAbsoluteUri(NavigationManager.Uri);
+        var query = QueryHelpers.ParseQuery(uri.Query);
+
+        if (query.ContainsKey("error"))
+        {
+            hasError = true;
+        }
+
+        if (query.TryGetValue("returnUrl", out var returnUrl) && !string.IsNullOrWhiteSpace(returnUrl))
+        {
+            this.returnUrl = returnUrl!;
+        }
+        else
+        {
+            this.returnUrl = "/";
+        }
+    }
+}

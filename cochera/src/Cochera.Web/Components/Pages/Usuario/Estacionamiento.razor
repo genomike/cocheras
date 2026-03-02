@@ -1,5 +1,6 @@
 @page "/usuario/estacionamiento"
 @page "/usuario/disponibilidad"
+@attribute [Authorize(Roles = "User")]
 @using Cochera.Application.DTOs
 @using Cochera.Application.Interfaces
 @using Cochera.Web.Services

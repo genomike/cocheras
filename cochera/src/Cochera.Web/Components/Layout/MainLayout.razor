@@ -1,4 +1,5 @@
 @inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Components.Authorization
 @using Radzen
 @using Radzen.Blazor
 @using Cochera.Application.DTOs
@@ -12,25 +13,29 @@
             <RadzenSidebarToggle Click="@(() => sidebarExpanded = !sidebarExpanded)" />
             <RadzenLabel Text="🅿️ Sistema de Cochera" class="app-title" />
             <div style="flex-grow: 1;"></div>
-            @if (UsuarioActualService.EstaLogueado)
-            {
-                <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.25rem" class="user-info">
-                    <RadzenIcon Icon="@(UsuarioActualService.EsAdmin ? "admin_panel_settings" : "person")" Style="font-size: 1rem;" />
-                    <span class="user-name">@UsuarioActualService.UsuarioActual?.Nombre</span>
-                    @if (UsuarioActualService.EsAdmin)
+            <AuthorizeView>
+                <Authorized>
+                    @if (UsuarioActualService.EstaLogueado)
                     {
-                        <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="Admin" class="admin-badge" />
+                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.25rem" class="user-info">
+                            <RadzenIcon Icon="@(UsuarioActualService.EsAdmin ? "admin_panel_settings" : "person")" Style="font-size: 1rem;" />
+                            <span class="user-name">@UsuarioActualService.UsuarioActual?.Nombre</span>
+                            @if (UsuarioActualService.EsAdmin)
+                            {
+                                <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="Admin" class="admin-badge" />
+                            }
+                            <RadzenButton Icon="logout" Text="Salir" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="CerrarSesion" />
+                        </RadzenStack>
                     }
-                </RadzenStack>
-            }
+                </Authorized>
+            </AuthorizeView>
         </RadzenStack>
     </RadzenHeader>
     <RadzenSidebar @bind-Expanded="@sidebarExpanded" class="app-sidebar">
         <RadzenPanelMenu Style="flex: 1;">
             @if (!UsuarioActualService.EstaLogueado)
             {
-                <!-- Sin usuario seleccionado -->
-                <RadzenPanelMenuItem Text="Bienvenido" Icon="home" Path="/" />
+                <RadzenPanelMenuItem Text="Iniciar sesión" Icon="login" Path="/login" />
             }
             else if (UsuarioActualService.EsAdmin)
             {
@@ -54,9 +59,6 @@
                 <RadzenPanelMenuItem Text="Mi Historial" Icon="history" Path="/usuario/historial" />
             }
         </RadzenPanelMenu>
-        
-        <!-- Selector de Usuario en la parte inferior del sidebar -->
-        <UserSelector />
     </RadzenSidebar>
     <RadzenBody class="app-body">
         <div class="page-content">
@@ -158,6 +160,11 @@
     private void OnUsuarioCambiadoHandler()
     {
         InvokeAsync(StateHasChanged);
+    }
+
+    private void CerrarSesion()
+    {
+        NavigationManager.NavigateTo("/logout", forceLoad: true);
     }
 
     public void Dispose()

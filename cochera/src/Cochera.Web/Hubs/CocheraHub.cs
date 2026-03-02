@@ -1,4 +1,6 @@
 using Cochera.Application.DTOs;
+using Cochera.Application.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
 
@@ -7,23 +9,48 @@ namespace Cochera.Web.Hubs;
 public class CocheraHub : Hub
 {
     private readonly ILogger<CocheraHub> _logger;
+    private readonly IUsuarioService _usuarioService;
 
-    public CocheraHub(ILogger<CocheraHub> logger)
+    public CocheraHub(ILogger<CocheraHub> logger, IUsuarioService usuarioService)
     {
         _logger = logger;
+        _usuarioService = usuarioService;
     }
 
     // Grupos: "admins" y "usuario_{id}"
+    [Authorize(Roles = "Admin")]
     public async Task UnirseComoAdmin()
     {
         await Groups.AddToGroupAsync(Context.ConnectionId, "admins");
         _logger.LogInformation("👤 Admin conectado al grupo 'admins': {ConnectionId}", Context.ConnectionId);
     }
 
+    [Authorize]
     public async Task UnirseComoUsuario(int usuarioId)
     {
-        await Groups.AddToGroupAsync(Context.ConnectionId, $"usuario_{usuarioId}");
-        _logger.LogInformation("👤 Usuario {UsuarioId} conectado al grupo: {ConnectionId}", usuarioId, Context.ConnectionId);
+        var codigo = Context.User?.Identity?.Name;
+        if (string.IsNullOrWhiteSpace(codigo))
+        {
+            _logger.LogWarning("⛔ Intento de unión sin identidad en {ConnectionId}", Context.ConnectionId);
+            throw new HubException("No autenticado");
+        }
+
+        var usuario = await _usuarioService.GetByCodigoAsync(codigo);
+        if (usuario == null)
+        {
+            _logger.LogWarning("⛔ Usuario no encontrado para código {Codigo}", codigo);
+            throw new HubException("Usuario inválido");
+        }
+
+        if (Context.User?.IsInRole("Admin") == true || usuario.Id == usuarioId)
+        {
+            await Groups.AddToGroupAsync(Context.ConnectionId, $"usuario_{usuarioId}");
+            _logger.LogInformation("👤 Usuario {UsuarioId} conectado al grupo: {ConnectionId}", usuarioId, Context.ConnectionId);
+            return;
+        }
+
+        _logger.LogWarning("⛔ Intento de acceso a grupo de otro usuario. UsuarioAuth={AuthUserId}, UsuarioSolicitado={UsuarioId}", usuario.Id, usuarioId);
+        throw new HubException("Acceso denegado");
     }
 
     public async Task SalirDeGrupoUsuario(int usuarioId)

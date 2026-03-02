@@ -1,6 +1,6 @@
 using Cochera.Application.DTOs;
 using Cochera.Application.Interfaces;
-using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Cochera.Web.Services;
@@ -8,18 +8,16 @@ namespace Cochera.Web.Services;
 public class UsuarioActualService
 {
     private readonly IServiceProvider _serviceProvider;
-    private readonly ProtectedSessionStorage _sessionStorage;
+    private readonly AuthenticationStateProvider _authenticationStateProvider;
     private UsuarioDto? _usuarioActual;
     private bool _initialized = false;
     
     public event Action? OnUsuarioCambiado;
     
-    private const string StorageKey = "usuario_actual_id";
-    
-    public UsuarioActualService(IServiceProvider serviceProvider, ProtectedSessionStorage sessionStorage)
+    public UsuarioActualService(IServiceProvider serviceProvider, AuthenticationStateProvider authenticationStateProvider)
     {
         _serviceProvider = serviceProvider;
-        _sessionStorage = sessionStorage;
+        _authenticationStateProvider = authenticationStateProvider;
     }
     
     public UsuarioDto? UsuarioActual => _usuarioActual;
@@ -32,32 +30,15 @@ public class UsuarioActualService
     
     public bool Initialized => _initialized;
     
-    /// <summary>
-    /// Inicializa el servicio cargando el usuario desde el storage del navegador.
-    /// Debe llamarse desde OnAfterRenderAsync de los componentes.
-    /// </summary>
     public async Task InitializeAsync()
     {
-        if (_initialized) return;
-        
-        try
+        if (_initialized)
         {
-            var result = await _sessionStorage.GetAsync<int>(StorageKey);
-            if (result.Success && result.Value > 0)
-            {
-                using var scope = _serviceProvider.CreateScope();
-                var usuarioService = scope.ServiceProvider.GetRequiredService<IUsuarioService>();
-                _usuarioActual = await usuarioService.GetByIdAsync(result.Value);
-            }
+            return;
         }
-        catch
-        {
-            // Ignorar errores de storage (puede fallar en prerendering)
-        }
-        finally
-        {
-            _initialized = true;
-        }
+
+        await RefrescarDesdeIdentidadAsync();
+        _initialized = true;
     }
     
     public async Task<IEnumerable<UsuarioDto>> GetTodosUsuariosAsync()
@@ -66,42 +47,42 @@ public class UsuarioActualService
         var usuarioService = scope.ServiceProvider.GetRequiredService<IUsuarioService>();
         return await usuarioService.GetAllAsync();
     }
-    
-    public async Task CambiarUsuarioAsync(int usuarioId)
+
+    public async Task RefrescarDesdeIdentidadAsync()
     {
+        var authState = await _authenticationStateProvider.GetAuthenticationStateAsync();
+        var userPrincipal = authState.User;
+
+        if (userPrincipal?.Identity?.IsAuthenticated != true)
+        {
+            _usuarioActual = null;
+            OnUsuarioCambiado?.Invoke();
+            return;
+        }
+
+        var codigo = userPrincipal.Identity?.Name;
+        if (string.IsNullOrWhiteSpace(codigo))
+        {
+            _usuarioActual = null;
+            OnUsuarioCambiado?.Invoke();
+            return;
+        }
+
         using var scope = _serviceProvider.CreateScope();
         var usuarioService = scope.ServiceProvider.GetRequiredService<IUsuarioService>();
-        _usuarioActual = await usuarioService.GetByIdAsync(usuarioId);
-        
-        // Persistir en el storage del navegador
-        try
-        {
-            if (_usuarioActual != null)
-            {
-                await _sessionStorage.SetAsync(StorageKey, _usuarioActual.Id);
-            }
-        }
-        catch
-        {
-            // Ignorar errores de storage
-        }
-        
+        _usuarioActual = await usuarioService.GetByCodigoAsync(codigo);
         OnUsuarioCambiado?.Invoke();
     }
-    
+
+    public async Task CambiarUsuarioAsync(int usuarioId)
+    {
+        await RefrescarDesdeIdentidadAsync();
+    }
+
     public async Task CerrarSesionAsync()
     {
         _usuarioActual = null;
-        
-        try
-        {
-            await _sessionStorage.DeleteAsync(StorageKey);
-        }
-        catch
-        {
-            // Ignorar errores de storage
-        }
-        
+        _initialized = false;
         OnUsuarioCambiado?.Invoke();
     }
     
