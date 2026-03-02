@@ -1,0 +1,54 @@
+@startuml Diagrama de Estados - ESP32 Control de LEDs
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam defaultFontSize 11
+
+title Diagrama de Estados: ESP32 - Control de LEDs y Eventos
+
+[*] --> Disponible : Setup()
+
+state Disponible #E8F5E9 {
+    Disponible : LED Verde: ON
+    Disponible : LED Rojo: OFF
+    Disponible : Al menos 1 cajón libre
+}
+
+state CocheraLlena #FFEBEE {
+    CocheraLlena : LED Verde: OFF
+    CocheraLlena : LED Rojo: ON
+    CocheraLlena : Ambos cajones ocupados
+    CocheraLlena : tonoLleno()
+}
+
+state ParpadeoActivo #FFF3E0 {
+    ParpadeoActivo : LED Verde/Rojo: Alternando
+    ParpadeoActivo : Intervalo: 100ms
+    ParpadeoActivo : Timeout: 60 segundos
+    ParpadeoActivo : Esperando salida por entrada
+}
+
+Disponible --> CocheraLlena : Cajón 1 Y Cajón 2\nOCUPADOS
+
+CocheraLlena --> ParpadeoActivo : Un cajón liberado\n(CAJON_LIBERADO)\ntonoLiberado()
+
+ParpadeoActivo --> Disponible : Vehículo detectado\nen entrada\n(VEHICULO_SALIO)\ntonoSalidaParpadeo()
+
+ParpadeoActivo --> Disponible : Timeout 60s\n(PARPADEO_TIMEOUT)
+
+CocheraLlena -left-> Disponible : Cajón liberado\n(sin parpadeo previo)
+
+Disponible --> Disponible : Cajón ocupado\n(CAJON_OCUPADO)\nAún hay libres
+
+note right of Disponible
+  **Eventos en Entrada (Disponible):**
+  - Vehículo detectado → tonoBienvenida()
+  - Publish: MOVIMIENTO_ENTRADA
+end note
+
+note right of CocheraLlena
+  **Eventos en Entrada (Llena):**
+  - Vehículo detectado → tonoBloqueo()
+  - Publish: MOVIMIENTO_ENTRADA_BLOQUEADO
+end note
+
+@enduml

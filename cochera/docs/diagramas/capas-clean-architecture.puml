@@ -1,0 +1,78 @@
+@startuml Diagrama de Capas - Clean Architecture
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam defaultFontSize 11
+skinparam rectangleRoundCorner 15
+
+title Diagrama de Capas - Arquitectura Limpia (Clean Architecture)
+
+rectangle "**Capa de Presentación**\nCochera.Web (Blazor Server)" #E3F2FD {
+    rectangle "Razor Components\n(Pages, Layout)" as Razor #BBDEFB
+    rectangle "SignalR Hub\n(CocheraHub)" as HubLayer #BBDEFB
+    rectangle "Web Services\n(SesionNotification,\nUsuarioActual)" as WebSvc #BBDEFB
+}
+
+rectangle "**Capa de Worker**\nCochera.Worker" as WorkerLayer #F3E5F5 {
+    rectangle "MqttWorker\n(BackgroundService)" as MqttW #CE93D8
+    rectangle "SignalRNotificationService\n(Hub Client)" as SignalRSvc #CE93D8
+}
+
+rectangle "**Capa de Aplicación**\nCochera.Application" as AppLayer #E8F5E9 {
+    rectangle "Interfaces de Servicio\n(ICajonService, ISesionService,\nIEventoSensorService, etc.)" as AppInterfaces #A5D6A7
+    rectangle "Implementaciones de Servicio\n(CajonService, SesionService,\nEventoSensorService, etc.)" as AppServices #A5D6A7
+    rectangle "DTOs\n(CajonDto, SesionDto,\nEventoSensorDto, etc.)" as DTOs #A5D6A7
+}
+
+rectangle "**Capa de Dominio**\nCochera.Domain" as DomainLayer #FFF3E0 {
+    rectangle "Entidades\n(Usuario, Cajon, Sesion,\nPago, EventoSensor, etc.)" as DomEntities #FFE0B2
+    rectangle "Enums\n(EstadoCajon, EstadoSesion,\nMetodoPago, TipoEvento)" as DomEnums #FFE0B2
+    rectangle "Interfaces de Repositorio\n(IRepository<T>, IUnitOfWork,\nICajonRepository, etc.)" as DomInterfaces #FFE0B2
+}
+
+rectangle "**Capa de Infraestructura**\nCochera.Infrastructure" as InfraLayer #FFEBEE {
+    rectangle "Entity Framework Core\n(CocheraDbContext,\nMigraciones)" as EF #FFCDD2
+    rectangle "Repositorios\n(Repository<T>, UnitOfWork,\nCajonRepository, etc.)" as Repos #FFCDD2
+    rectangle "Servicios MQTT\n(MqttConsumerService,\nMqttSettings)" as MqttSvc #FFCDD2
+    rectangle "RabbitMQ\n(RabbitMqManagement)" as RabbitSvc #FFCDD2
+}
+
+' === DEPENDENCIAS (Dirección de la flecha = "depende de") ===
+Razor -down-> AppInterfaces : usa
+Razor -down-> DTOs : consume
+HubLayer -down-> DTOs : transmite
+WebSvc -down-> AppInterfaces : usa
+
+MqttW -down-> AppInterfaces : usa
+MqttW --> MqttSvc : consume mensajes
+
+AppServices -down-> DomEntities : mapea
+AppServices -down-> DomInterfaces : usa
+AppInterfaces <|.. AppServices : implementa
+
+Repos -up-> DomInterfaces : implementa
+Repos --> DomEntities : persiste
+EF --> DomEntities : mapea
+MqttSvc --> DTOs : produce
+
+' === REGLA DE DEPENDENCIA ===
+note right of DomainLayer
+  **Regla de Dependencia:**
+  - Domain NO depende de nada externo
+  - Application depende solo de Domain
+  - Infrastructure implementa interfaces de Domain
+  - Web/Worker dependen de Application
+  
+  **Inversión de Dependencias (DIP):**
+  Las capas superiores definen interfaces,
+  las capas inferiores las implementan.
+end note
+
+note bottom of InfraLayer
+  **Tecnologías Infrastructure:**
+  - Entity Framework Core 8 (ORM)
+  - Npgsql (PostgreSQL driver)
+  - MQTTnet 4.3 (cliente MQTT)
+  - RabbitMQ.Client 6.8 (AMQP)
+end note
+
+@enduml

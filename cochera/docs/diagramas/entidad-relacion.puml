@@ -1,0 +1,131 @@
+@startuml Diagrama Entidad-Relación
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam defaultFontSize 11
+
+title Diagrama Entidad-Relación - Base de Datos Cochera (PostgreSQL)
+
+entity "Usuarios" as usuarios {
+    * **Id** : int <<PK, serial>>
+    --
+    * Nombre : varchar(100)
+    * Codigo : varchar(50) <<UNIQUE>>
+    * EsAdmin : boolean
+    * FechaCreacion : timestamp
+    FechaActualizacion : timestamp?
+}
+
+entity "Cajones" as cajones {
+    * **Id** : int <<PK, serial>>
+    --
+    * Numero : int <<UNIQUE>>
+    * Estado : int (enum EstadoCajon)
+    UltimoCambioEstado : timestamp?
+    * FechaCreacion : timestamp
+    FechaActualizacion : timestamp?
+}
+
+entity "SesionEstacionamiento" as sesiones {
+    * **Id** : int <<PK, serial>>
+    --
+    * UsuarioId : int <<FK>>
+    * CajonId : int <<FK>>
+    * HoraEntrada : timestamp
+    HoraSalida : timestamp?
+    * MinutosEstacionado : int
+    * TarifaPorMinuto : decimal(18,2)
+    * MontoTotal : decimal(18,2)
+    * Estado : int (enum EstadoSesion)
+    * FechaCreacion : timestamp
+    FechaActualizacion : timestamp?
+}
+
+entity "Pagos" as pagos {
+    * **Id** : int <<PK, serial>>
+    --
+    * SesionId : int <<FK, UNIQUE>>
+    * Monto : decimal(18,2)
+    * MetodoPago : int (enum MetodoPago)
+    * FechaPago : timestamp
+    Referencia : varchar(100)?
+    * FechaCreacion : timestamp
+    FechaActualizacion : timestamp?
+}
+
+entity "EventoSensor" as eventos {
+    * **Id** : int <<PK, serial>>
+    --
+    * TipoEvento : int (enum TipoEvento)
+    * EventoOriginal : varchar(100)
+    * Detalle : varchar(500)
+    * TimestampESP32 : varchar(50)
+    * EstadoCajon1 : varchar(20)
+    * EstadoCajon2 : varchar(20)
+    * CajonesLibres : int
+    * CajonesOcupados : int
+    * CocheraLlena : boolean
+    * JsonOriginal : text
+    * FechaCreacion : timestamp
+    FechaActualizacion : timestamp?
+}
+
+entity "Tarifas" as tarifas {
+    * **Id** : int <<PK, serial>>
+    --
+    * PrecioPorMinuto : decimal(18,2)
+    * FechaInicio : timestamp
+    FechaFin : timestamp?
+    * Activa : boolean
+    Descripcion : varchar(200)?
+    * FechaCreacion : timestamp
+    FechaActualizacion : timestamp?
+}
+
+entity "EstadosCochera" as estado {
+    * **Id** : int <<PK, serial>>
+    --
+    * Cajon1Ocupado : boolean
+    * Cajon2Ocupado : boolean
+    * CajonesLibres : int
+    * CajonesOcupados : int
+    * CocheraLlena : boolean
+    * UltimaActualizacion : timestamp
+    * FechaCreacion : timestamp
+    FechaActualizacion : timestamp?
+}
+
+' === RELACIONES ===
+usuarios ||--o{ sesiones : "tiene muchas"
+cajones ||--o{ sesiones : "aloja muchas"
+sesiones ||--o| pagos : "genera 0..1"
+
+note bottom of sesiones
+  **Restricciones:**
+  - ON DELETE RESTRICT (Usuario)
+  - ON DELETE RESTRICT (Cajón)
+  - Un usuario solo puede tener
+    1 sesión Activa a la vez
+end note
+
+note bottom of pagos
+  **Restricciones:**
+  - ON DELETE CASCADE (Sesión)
+  - Relación 1:1 con Sesión
+  - SesionId es UNIQUE
+end note
+
+note right of eventos
+  **Sin relaciones FK:**
+  - Registro independiente
+  - JSON crudo almacenado
+  - Para auditoría y análisis
+end note
+
+note right of estado
+  **Singleton virtual:**
+  - Solo 1 registro activo
+  - Actualizado en cada evento
+  - Refleja estado real-time
+end note
+
+@enduml

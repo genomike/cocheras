@@ -1,0 +1,136 @@
+@startuml Arquitectura General - Sistema de Cochera Inteligente
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam componentStyle rectangle
+skinparam defaultFontSize 12
+skinparam packageStyle frame
+
+title Arquitectura General del Sistema de Cochera Inteligente
+
+skinparam component {
+    BackgroundColor #E3F2FD
+    BorderColor #1565C0
+}
+
+skinparam database {
+    BackgroundColor #FFF3E0
+    BorderColor #E65100
+}
+
+skinparam node {
+    BackgroundColor #E8F5E9
+    BorderColor #2E7D32
+}
+
+skinparam cloud {
+    BackgroundColor #F3E5F5
+    BorderColor #6A1B9A
+}
+
+' === CAPA FÍSICA (IoT) ===
+package "Capa Física (IoT)" #E8F5E9 {
+    node "ESP32\n(Microcontrolador)" as ESP32 {
+        component "Sensor Ultrasónico\nEntrada" as SensorEntrada
+        component "Sensor Ultrasónico\nCajón 1" as SensorC1
+        component "Sensor Ultrasónico\nCajón 2" as SensorC2
+        component "LED Verde" as LedVerde
+        component "LED Rojo" as LedRojo
+        component "Buzzer" as Buzzer
+        component "WiFi Client" as WiFiClient
+        component "MQTT Publisher" as MQTTPublisher
+    }
+}
+
+' === CAPA DE MENSAJERÍA ===
+package "Capa de Mensajería" #F3E5F5 {
+    component "RabbitMQ\n(Broker MQTT)" as RabbitMQ {
+        queue "cola_sensores\n(Topic MQTT)" as ColaSensores
+    }
+}
+
+' === CAPA BACKEND ===
+package "Capa Backend (.NET 8)" #E3F2FD {
+    component "Cochera.Worker\n(Background Service)" as Worker {
+        component "MqttWorker" as MqttWorker
+        component "MQTT Consumer" as MQTTConsumer
+        component "SignalR Client" as SignalRClient
+    }
+    
+    component "Cochera.Web\n(Blazor Server)" as Web {
+        component "Razor Components" as RazorComponents
+        component "SignalR Hub\n(CocheraHub)" as SignalRHub
+        component "Services (Web)" as WebServices
+    }
+    
+    component "Cochera.Application\n(Lógica de Negocio)" as AppLayer {
+        component "Services" as AppServices
+        component "DTOs" as DTOs
+        component "Interfaces" as AppInterfaces
+    }
+    
+    component "Cochera.Domain\n(Entidades)" as DomainLayer {
+        component "Entities" as Entities
+        component "Enums" as Enums
+        component "Repository Interfaces" as RepoInterfaces
+    }
+    
+    component "Cochera.Infrastructure\n(Acceso a Datos)" as InfraLayer {
+        component "Repositories" as Repositories
+        component "DbContext" as DbContext
+        component "MQTT Services" as MqttServices
+    }
+}
+
+' === CAPA DE DATOS ===
+package "Capa de Datos" #FFF3E0 {
+    database "PostgreSQL\n(Base de Datos)" as PostgreSQL {
+        storage "Usuarios" as TblUsuarios
+        storage "Cajones" as TblCajones
+        storage "Sesiones" as TblSesiones
+        storage "Pagos" as TblPagos
+        storage "Eventos" as TblEventos
+        storage "Tarifas" as TblTarifas
+        storage "EstadoCochera" as TblEstado
+    }
+}
+
+' === CAPA CLIENTE ===
+package "Capa Cliente" #FFFDE7 {
+    node "Navegador Web" as Browser {
+        component "Vista Admin\n(Dashboard, Gestión)" as VistaAdmin
+        component "Vista Usuario\n(Estacionamiento, Pagos)" as VistaUsuario
+        component "SignalR JS Client" as JSClient
+    }
+}
+
+' === CONEXIONES ===
+' IoT -> Mensajería
+ESP32 -down-> RabbitMQ : "MQTT Publish\n(JSON eventos)"
+SensorEntrada --> MQTTPublisher
+SensorC1 --> MQTTPublisher
+SensorC2 --> MQTTPublisher
+
+' Mensajería -> Worker
+RabbitMQ -down-> MQTTConsumer : "MQTT Subscribe\n(cola_sensores)"
+
+' Worker -> Web
+SignalRClient -right-> SignalRHub : "Notificaciones\nen tiempo real"
+
+' Capas Backend
+Worker --> AppLayer : "Procesar Eventos"
+Web --> AppLayer : "Operaciones CRUD"
+AppLayer --> DomainLayer : "Entidades y Reglas"
+AppLayer --> InfraLayer : "Repositorios"
+InfraLayer --> PostgreSQL : "EF Core\n(Npgsql)"
+
+' Web -> Cliente
+SignalRHub -down-> JSClient : "WebSocket\n(Eventos RT)"
+Web -down-> Browser : "Blazor Server\n(SSR Interactivo)"
+
+' Flujo de datos
+MqttWorker --> AppServices : "ProcesarMensajeAsync"
+AppServices --> DTOs
+AppServices --> Repositories
+Repositories --> DbContext
+
+@enduml

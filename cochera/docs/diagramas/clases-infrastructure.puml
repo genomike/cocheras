@@ -1,0 +1,189 @@
+@startuml Diagrama de Clases - Capa Infrastructure
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam classAttributeIconSize 0
+skinparam defaultFontSize 10
+
+title Diagrama de Clases - Cochera.Infrastructure
+
+' === INTERFACES DE REPOSITORIO (Domain) ===
+package "Domain.Interfaces" #E8F5E9 {
+    interface "IRepository<T>" as IRepository {
+        + GetByIdAsync(id: int) : Task<T?>
+        + GetAllAsync() : Task<IEnumerable<T>>
+        + FindAsync(predicate) : Task<IEnumerable<T>>
+        + FirstOrDefaultAsync(predicate) : Task<T?>
+        + AddAsync(entity: T) : Task<T>
+        + AddRangeAsync(entities) : Task
+        + Update(entity: T) : void
+        + Remove(entity: T) : void
+        + RemoveRange(entities) : void
+        + CountAsync(predicate?) : Task<int>
+        + AnyAsync(predicate) : Task<bool>
+    }
+
+    interface IUnitOfWork {
+        + Usuarios : IUsuarioRepository
+        + Cajones : ICajonRepository
+        + Sesiones : ISesionEstacionamientoRepository
+        + Eventos : IEventoSensorRepository
+        + Tarifas : ITarifaRepository
+        + EstadoCochera : IEstadoCocheraRepository
+        + Pagos : IPagoRepository
+        --
+        + SaveChangesAsync() : Task<int>
+        + BeginTransactionAsync() : Task
+        + CommitTransactionAsync() : Task
+        + RollbackTransactionAsync() : Task
+    }
+
+    interface ICajonRepository {
+        + GetByNumeroAsync(numero: int) : Task<Cajon?>
+        + GetCajonesLibresAsync() : Task<IEnumerable<Cajon>>
+    }
+
+    interface IUsuarioRepository {
+        + GetByCodigoAsync(codigo: string) : Task<Usuario?>
+        + GetUsuariosNoAdminAsync() : Task<IEnumerable<Usuario>>
+    }
+
+    interface ISesionEstacionamientoRepository {
+        + GetSesionActivaByUsuarioAsync(id: int) : Task<SesionEstacionamiento?>
+        + GetSesionActivaByCajonAsync(id: int) : Task<SesionEstacionamiento?>
+        + GetSesionesActivasAsync() : Task<IEnumerable<SesionEstacionamiento>>
+        + GetSesionesByFechaAsync(desde, hasta) : Task<IEnumerable<SesionEstacionamiento>>
+        + GetWithPagoAsync(sesionId: int) : Task<SesionEstacionamiento?>
+    }
+
+    interface IEventoSensorRepository {
+        + GetUltimosEventosAsync(cantidad: int) : Task<IEnumerable<EventoSensor>>
+        + GetEventosByFechaAsync(desde, hasta) : Task<IEnumerable<EventoSensor>>
+        + GetUltimoEventoAsync() : Task<EventoSensor?>
+    }
+
+    interface ITarifaRepository {
+        + GetTarifaActivaAsync() : Task<Tarifa?>
+    }
+
+    interface IEstadoCocheraRepository {
+        + GetEstadoActualAsync() : Task<EstadoCochera?>
+    }
+
+    interface IPagoRepository {
+        + GetPagosByFechaAsync(desde, hasta) : Task<IEnumerable<Pago>>
+        + GetTotalRecaudadoAsync(desde, hasta) : Task<decimal>
+    }
+}
+
+' === REPOSITORIOS (Infrastructure) ===
+package "Repositories" #E3F2FD {
+    class "Repository<T>" as Repository {
+        # _context : DbContext
+        # _dbSet : DbSet<T>
+    }
+
+    class UnitOfWork {
+        - _context : CocheraDbContext
+        - _transaction : IDbContextTransaction?
+    }
+
+    class CajonRepository
+    class UsuarioRepository
+    class SesionEstacionamientoRepository
+    class EventoSensorRepository
+    class TarifaRepository
+    class EstadoCocheraRepository
+    class PagoRepository
+}
+
+' === DATA ===
+package "Data" #FFF3E0 {
+    class CocheraDbContext {
+        + Usuarios : DbSet<Usuario>
+        + Cajones : DbSet<Cajon>
+        + Sesiones : DbSet<SesionEstacionamiento>
+        + Pagos : DbSet<Pago>
+        + Eventos : DbSet<EventoSensor>
+        + Tarifas : DbSet<Tarifa>
+        + EstadosCochera : DbSet<EstadoCochera>
+        --
+        # OnModelCreating(modelBuilder)
+        - SeedData(modelBuilder)
+        + SaveChangesAsync() : Task<int>
+    }
+}
+
+' === MQTT ===
+package "Mqtt" #F3E5F5 {
+    interface IMqttConsumerService {
+        + OnMensajeRecibido : event
+        + StartAsync() : Task
+        + StopAsync() : Task
+        + IsConnected : bool
+    }
+
+    class MqttConsumerService {
+        - _settings : MqttSettings
+        - _mqttClient : IMqttClient?
+    }
+
+    class MqttSettings {
+        + Server : string
+        + Port : int
+        + Username : string
+        + Password : string
+        + Topic : string
+        + ClientId : string
+    }
+}
+
+' === RABBIT MQ ===
+package "RabbitMq" #FFEBEE {
+    class RabbitMqManagementService {
+        + PurgeClientQueueAsync(clientId: string) : Task
+        + GetQueueMessageCountAsync(clientId: string) : Task<uint>
+    }
+}
+
+' === HERENCIA E IMPLEMENTACIONES ===
+IRepository <|-- ICajonRepository
+IRepository <|-- IUsuarioRepository
+IRepository <|-- ISesionEstacionamientoRepository
+IRepository <|-- IEventoSensorRepository
+IRepository <|-- ITarifaRepository
+IRepository <|-- IEstadoCocheraRepository
+IRepository <|-- IPagoRepository
+
+Repository ..|> IRepository
+CajonRepository --|> Repository
+UsuarioRepository --|> Repository
+SesionEstacionamientoRepository --|> Repository
+EventoSensorRepository --|> Repository
+TarifaRepository --|> Repository
+EstadoCocheraRepository --|> Repository
+PagoRepository --|> Repository
+
+CajonRepository ..|> ICajonRepository
+UsuarioRepository ..|> IUsuarioRepository
+SesionEstacionamientoRepository ..|> ISesionEstacionamientoRepository
+EventoSensorRepository ..|> IEventoSensorRepository
+TarifaRepository ..|> ITarifaRepository
+EstadoCocheraRepository ..|> IEstadoCocheraRepository
+PagoRepository ..|> IPagoRepository
+
+UnitOfWork ..|> IUnitOfWork
+UnitOfWork --> CocheraDbContext
+UnitOfWork --> CajonRepository
+UnitOfWork --> UsuarioRepository
+UnitOfWork --> SesionEstacionamientoRepository
+UnitOfWork --> EventoSensorRepository
+UnitOfWork --> TarifaRepository
+UnitOfWork --> EstadoCocheraRepository
+UnitOfWork --> PagoRepository
+
+IMqttConsumerService <|.. MqttConsumerService
+MqttConsumerService --> MqttSettings
+
+Repository --> CocheraDbContext
+
+@enduml

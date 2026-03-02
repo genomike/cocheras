@@ -1,0 +1,76 @@
+@startuml Diagrama de Componentes - Comunicación en Tiempo Real
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam defaultFontSize 11
+skinparam componentStyle rectangle
+
+title Diagrama de Comunicación en Tiempo Real (SignalR)
+
+package "Cochera.Web (Blazor Server)" #E3F2FD {
+    component "CocheraHub" as Hub {
+        portin "NuevoEvento" as HubEvento
+        portin "CambioEstado" as HubEstado
+        portin "VehiculoDetectadoEnEntrada" as HubVehiculo
+        portin "NuevaSesionCreada" as HubNuevaSesion
+        portin "SolicitudCierreSesion" as HubSolicitudCierre
+        portin "UsuarioPagoConfirmado" as HubPagoConfirmado
+        portin "SesionCerrada" as HubSesionCerrada
+        portin "ActualizarMontoSesion" as HubActMonto
+    }
+
+    component "SesionNotificationService\n(IHubContext<CocheraHub>)" as WebNotif
+
+    package "Páginas Admin" #E8F5E9 {
+        component "Dashboard.razor" as Dashboard
+        component "GestionEntrada.razor" as GestionEntrada
+        component "Eventos.razor" as PagEventos
+        component "SesionesActivas.razor" as PagSesiones
+    }
+
+    package "Páginas Usuario" #FFF3E0 {
+        component "Estacionamiento.razor" as Estacionamiento
+        component "Historial.razor" as PagHistorial
+        component "Pagos.razor" as PagPagos
+    }
+}
+
+package "Cochera.Worker" #F3E5F5 {
+    component "SignalRNotificationService\n(HubConnection Client)" as WorkerNotif
+    component "MqttWorker" as MqttW
+}
+
+' === Grupos SignalR ===
+note as N1
+    **Grupos SignalR:**
+    - "admins" → Administradores
+    - "usuario_{id}" → Usuario específico
+    
+    **Canales de comunicación:**
+    - All → todos los clientes conectados
+    - Group("admins") → solo administradores
+    - Group("usuario_X") → usuario específico
+end note
+
+' === FLUJO WORKER → HUB ===
+MqttW --> WorkerNotif : Evento procesado
+WorkerNotif --> HubEvento : InvokeAsync("NuevoEvento")
+WorkerNotif --> HubEstado : InvokeAsync("CambioEstado")
+WorkerNotif --> HubVehiculo : InvokeAsync("VehiculoDetectadoEnEntrada")
+
+' === FLUJO WEB → HUB ===
+WebNotif --> HubNuevaSesion : SendAsync("NuevaSesionCreada")
+WebNotif --> HubSolicitudCierre : SendAsync("SolicitudCierreSesion")
+WebNotif --> HubPagoConfirmado : SendAsync("UsuarioPagoConfirmado")
+WebNotif --> HubSesionCerrada : SendAsync("SesionCerrada")
+
+' === HUB → CLIENTES ===
+Hub --> Dashboard : RecibirEvento\nRecibirEstado\nVehiculoDetectado
+Hub --> GestionEntrada : VehiculoDetectadoEnEntrada\nNuevaSesionCreada\nPagoConfirmado
+Hub --> PagEventos : RecibirEvento
+Hub --> PagSesiones : NuevaSesionCreada\nSesionCerradaAdmin
+
+Hub --> Estacionamiento : RecibirEstado\nMiNuevaSesion\nSolicitudCierreSesion\nSesionCerrada
+Hub --> PagHistorial : SesionCerrada
+Hub --> PagPagos : SesionCerrada
+
+@enduml

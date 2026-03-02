@@ -1,0 +1,90 @@
+@startuml Secuencia - Procesamiento de Eventos MQTT
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam defaultFontSize 11
+
+title Secuencia: Procesamiento de Mensaje MQTT desde ESP32
+
+participant "ESP32" as ESP32
+participant "RabbitMQ\n(Broker MQTT)" as MQTT
+participant "MqttConsumerService" as MqttConsumer
+participant "MqttWorker" as Worker
+participant "EventoSensorService" as EventoSvc
+participant "CajonService" as CajonSvc
+participant "EstadoCocheraService" as EstadoSvc
+participant "UnitOfWork" as UoW
+database "PostgreSQL" as DB
+participant "SignalRNotification\nService" as SignalR
+participant "CocheraHub" as Hub
+participant "Blazor Clients" as Clients
+
+ESP32 -> MQTT : MQTT Publish\ntopic: "cola_sensores"\nQoS: 1
+activate MQTT
+
+MQTT -> MqttConsumer : ApplicationMessageReceivedAsync
+activate MqttConsumer
+MqttConsumer -> MqttConsumer : Deserialize JSON\n→ MensajeSensorMqtt
+MqttConsumer -> Worker : OnMensajeRecibido\n(mensaje, jsonOriginal)
+deactivate MqttConsumer
+
+activate Worker
+Worker -> Worker : CreateScope()
+Worker -> EventoSvc : ProcesarMensajeAsync(mensaje, json)
+activate EventoSvc
+
+EventoSvc -> EventoSvc : MapearTipoEvento()\n"CAJON_OCUPADO" → TipoEvento.CajonOcupado
+EventoSvc -> UoW : Eventos.AddAsync(EventoSensor)
+UoW -> DB : INSERT INTO "Eventos"
+EventoSvc -> UoW : SaveChangesAsync()
+
+EventoSvc -> CajonSvc : ActualizarEstadoAsync(1, cajon1Ocupado)
+activate CajonSvc
+CajonSvc -> UoW : Cajones.GetByNumeroAsync(1)
+UoW -> DB : SELECT FROM "Cajones"
+CajonSvc -> UoW : Cajones.Update(cajon)
+CajonSvc -> UoW : SaveChangesAsync()
+UoW -> DB : UPDATE "Cajones"
+deactivate CajonSvc
+
+EventoSvc -> CajonSvc : ActualizarEstadoAsync(2, cajon2Ocupado)
+activate CajonSvc
+CajonSvc -> UoW : Cajones.Update(cajon)
+CajonSvc -> UoW : SaveChangesAsync()
+deactivate CajonSvc
+
+EventoSvc -> EstadoSvc : ActualizarEstadoAsync(cajon1, cajon2)
+activate EstadoSvc
+EstadoSvc -> UoW : EstadoCochera.GetEstadoActualAsync()
+EstadoSvc -> EstadoSvc : Calcular:\nOcupados, Libres, Lleno
+EstadoSvc -> UoW : EstadoCochera.Update(estado)
+EstadoSvc -> UoW : SaveChangesAsync()
+UoW -> DB : UPDATE "EstadosCochera"
+deactivate EstadoSvc
+
+EventoSvc --> Worker : EventoSensorDto
+deactivate EventoSvc
+
+Worker -> SignalR : NotificarNuevoEventoAsync(evento)
+activate SignalR
+SignalR -> Hub : InvokeAsync("NuevoEvento", evento)
+Hub -> Clients : SendAsync("RecibirEvento", evento)
+deactivate SignalR
+
+Worker -> EstadoSvc : GetEstadoActualAsync()
+Worker -> SignalR : NotificarCambioEstadoAsync(estado)
+activate SignalR
+SignalR -> Hub : InvokeAsync("CambioEstado", estado)
+Hub -> Clients : SendAsync("RecibirEstado", estado)\nSendAsync("ActualizarCajones", estado)
+deactivate SignalR
+
+alt TipoEvento == MovimientoEntrada OR VehiculoSalio
+    Worker -> SignalR : NotificarVehiculoDetectadoAsync(evento)
+    activate SignalR
+    SignalR -> Hub : InvokeAsync("VehiculoDetectadoEnEntrada", evento)
+    Hub -> Clients : SendAsync("VehiculoDetectadoEnEntrada")\n(solo grupo "admins")
+    deactivate SignalR
+end
+
+deactivate Worker
+
+@enduml

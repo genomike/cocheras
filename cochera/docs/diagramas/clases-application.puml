@@ -1,0 +1,197 @@
+@startuml Diagrama de Clases - Capa Application
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam classAttributeIconSize 0
+skinparam defaultFontSize 10
+
+title Diagrama de Clases - Cochera.Application (Servicios, DTOs e Interfaces)
+
+' === INTERFACES DE SERVICIO ===
+package "Interfaces" #E8F5E9 {
+
+    interface ICajonService {
+        + GetAllAsync() : Task<IEnumerable<CajonDto>>
+        + GetByNumeroAsync(numero: int) : Task<CajonDto?>
+        + GetCajonesLibresAsync() : Task<IEnumerable<CajonDto>>
+        + ActualizarEstadoAsync(numero: int, ocupado: bool) : Task
+        + ResetearEstadoAsync() : Task
+    }
+
+    interface IDashboardService {
+        + GetDashboardAsync() : Task<DashboardDto>
+        + GetUsoPorHoraAsync(fecha: DateTime) : Task<IEnumerable<ResumenPorHora>>
+        + GetUsoPorDiaAsync(desde: DateTime, hasta: DateTime) : Task<IEnumerable<ResumenPorDia>>
+    }
+
+    interface IEstadoCocheraService {
+        + GetEstadoActualAsync() : Task<EstadoCocheraDto?>
+        + ActualizarEstadoAsync(cajon1: bool, cajon2: bool) : Task
+    }
+
+    interface IEventoSensorService {
+        + ProcesarMensajeAsync(mensaje: MensajeSensorMqtt, json: string) : Task<EventoSensorDto>
+        + GetUltimosEventosAsync(cantidad: int) : Task<IEnumerable<EventoSensorDto>>
+        + GetEventosByFechaAsync(desde: DateTime, hasta: DateTime) : Task<IEnumerable<EventoSensorDto>>
+        + GetUltimoEventoAsync() : Task<EventoSensorDto?>
+    }
+
+    interface ISesionService {
+        + GetByIdAsync(id: int) : Task<SesionEstacionamientoDto?>
+        + GetAllAsync() : Task<IEnumerable<SesionEstacionamientoDto>>
+        + GetSesionesActivasAsync() : Task<IEnumerable<SesionEstacionamientoDto>>
+        + GetSesionesPendientesPagoAsync() : Task<IEnumerable<SesionEstacionamientoDto>>
+        + IniciarSesionAsync(request: IniciarSesionRequest) : Task<SesionEstacionamientoDto>
+        + SolicitarCierreSesionAsync(sesionId: int) : Task<SesionEstacionamientoDto>
+        + ConfirmarPagoUsuarioAsync(confirmacion: ConfirmacionPagoDto) : Task<SesionEstacionamientoDto>
+        + CerrarSesionAsync(sesionId: int) : Task<SesionEstacionamientoDto>
+        + FinalizarSesionAsync(request: FinalizarSesionRequest) : Task<SesionEstacionamientoDto>
+        + CalcularMontoActualAsync(sesionId: int) : Task<decimal>
+    }
+
+    interface ITarifaService {
+        + GetTarifaActivaAsync() : Task<TarifaDto?>
+        + GetHistorialTarifasAsync() : Task<IEnumerable<TarifaDto>>
+        + ActualizarTarifaAsync(request: ActualizarTarifaRequest) : Task<TarifaDto>
+    }
+
+    interface IUsuarioService {
+        + GetAllAsync() : Task<IEnumerable<UsuarioDto>>
+        + GetByIdAsync(id: int) : Task<UsuarioDto?>
+        + GetByCodigoAsync(codigo: string) : Task<UsuarioDto?>
+        + GetUsuariosNoAdminAsync() : Task<IEnumerable<UsuarioDto>>
+    }
+}
+
+' === SERVICIOS (IMPLEMENTACIONES) ===
+package "Services" #E3F2FD {
+    class CajonService
+    class DashboardService
+    class EstadoCocheraService
+    class EventoSensorService
+    class SesionService
+    class TarifaService
+    class UsuarioService
+}
+
+' === DTOs ===
+package "DTOs" #FFF3E0 {
+    class CajonDto {
+        + Id : int
+        + Numero : int
+        + Estado : EstadoCajon
+        + EstadoTexto : string
+        + UltimoCambioEstado : DateTime?
+    }
+
+    class DashboardDto {
+        + EstadoActual : EstadoCocheraDto
+        + TotalSesionesHoy : int
+        + RecaudacionHoy : decimal
+        + RecaudacionMes : decimal
+        + TotalEventosHoy : int
+        + UltimosEventos : List<EventoSensorDto>
+        + SesionesActivas : List<SesionEstacionamientoDto>
+        + UsoPorHora : List<ResumenPorHora>
+        + UsoPorDia : List<ResumenPorDia>
+    }
+
+    class EstadoCocheraDto {
+        + Cajon1Ocupado : bool
+        + Cajon2Ocupado : bool
+        + CajonesLibres : int
+        + CajonesOcupados : int
+        + CocheraLlena : bool
+        + EstadoGeneral : string
+    }
+
+    class EventoSensorDto {
+        + TipoEvento : TipoEvento
+        + EventoOriginal : string
+        + Detalle : string
+        + TipoEventoTexto : string
+        + FechaCreacion : DateTime
+    }
+
+    class SesionEstacionamientoDto {
+        + Id : int
+        + UsuarioNombre : string
+        + CajonNumero : int
+        + HoraEntrada : DateTime
+        + HoraSalida : DateTime?
+        + Estado : EstadoSesion
+        + MinutosEstacionado : int
+        + MontoTotal : decimal
+        + TiempoFormateado : string
+    }
+
+    class PagoDto {
+        + Id : int
+        + SesionId : int
+        + Monto : decimal
+        + MetodoPago : MetodoPago
+        + MetodoPagoTexto : string
+    }
+
+    class MensajeSensorMqtt {
+        + evento : string
+        + detalle : string
+        + timestamp : string
+        + cajon1 : string
+        + cajon2 : string
+        + libres : int
+        + ocupados : int
+        + lleno : bool
+    }
+
+    class IniciarSesionRequest {
+        + UsuarioId : int
+        + CajonId : int
+    }
+
+    class FinalizarSesionRequest {
+        + SesionId : int
+        + MetodoPago : MetodoPago
+    }
+
+    class ConfirmacionPagoDto {
+        + SesionId : int
+        + UsuarioId : int
+        + MetodoPago : MetodoPago
+    }
+
+    class TarifaDto {
+        + PrecioPorMinuto : decimal
+        + Activa : bool
+    }
+
+    class UsuarioDto {
+        + Nombre : string
+        + Codigo : string
+        + EsAdmin : bool
+    }
+}
+
+' === IMPLEMENTACIONES ===
+ICajonService <|.. CajonService
+IDashboardService <|.. DashboardService
+IEstadoCocheraService <|.. EstadoCocheraService
+IEventoSensorService <|.. EventoSensorService
+ISesionService <|.. SesionService
+ITarifaService <|.. TarifaService
+IUsuarioService <|.. UsuarioService
+
+' === DEPENDENCIAS ===
+CajonService --> "IUnitOfWork" : usa
+DashboardService --> "IUnitOfWork" : usa
+DashboardService --> IEstadoCocheraService
+DashboardService --> IEventoSensorService
+DashboardService --> ISesionService
+EstadoCocheraService --> "IUnitOfWork" : usa
+EventoSensorService --> "IUnitOfWork" : usa
+EventoSensorService --> IEstadoCocheraService
+EventoSensorService --> ICajonService
+SesionService --> "IUnitOfWork" : usa
+TarifaService --> "IUnitOfWork" : usa
+UsuarioService --> "IUnitOfWork" : usa
+
+@enduml

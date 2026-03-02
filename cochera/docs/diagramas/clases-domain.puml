@@ -1,0 +1,144 @@
+@startuml Diagrama de Clases - Capa Domain
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam classAttributeIconSize 0
+skinparam defaultFontSize 11
+
+title Diagrama de Clases - Cochera.Domain
+
+' === ENTIDADES ===
+package "Entities" #E3F2FD {
+
+    abstract class BaseEntity {
+        + Id : int
+        + FechaCreacion : DateTime
+        + FechaActualizacion : DateTime?
+    }
+
+    class Usuario {
+        + Nombre : string
+        + Codigo : string
+        + EsAdmin : bool
+        --
+        + Sesiones : ICollection<SesionEstacionamiento>
+    }
+
+    class Cajon {
+        + Numero : int
+        + Estado : EstadoCajon
+        + UltimoCambioEstado : DateTime?
+        --
+        + Sesiones : ICollection<SesionEstacionamiento>
+    }
+
+    class SesionEstacionamiento {
+        + UsuarioId : int
+        + CajonId : int
+        + HoraEntrada : DateTime
+        + HoraSalida : DateTime?
+        + MinutosEstacionado : int
+        + TarifaPorMinuto : decimal
+        + MontoTotal : decimal
+        + Estado : EstadoSesion
+        --
+        + Usuario : Usuario
+        + Cajon : Cajon
+        + Pago : Pago?
+    }
+
+    class Pago {
+        + SesionId : int
+        + Monto : decimal
+        + MetodoPago : MetodoPago
+        + FechaPago : DateTime
+        + Referencia : string?
+        --
+        + Sesion : SesionEstacionamiento
+    }
+
+    class EventoSensor {
+        + TipoEvento : TipoEvento
+        + EventoOriginal : string
+        + Detalle : string
+        + TimestampESP32 : string
+        + EstadoCajon1 : string
+        + EstadoCajon2 : string
+        + CajonesLibres : int
+        + CajonesOcupados : int
+        + CocheraLlena : bool
+        + JsonOriginal : string
+    }
+
+    class Tarifa {
+        + PrecioPorMinuto : decimal
+        + FechaInicio : DateTime
+        + FechaFin : DateTime?
+        + Activa : bool
+        + Descripcion : string?
+    }
+
+    class EstadoCochera {
+        + Cajon1Ocupado : bool
+        + Cajon2Ocupado : bool
+        + CajonesLibres : int
+        + CajonesOcupados : int
+        + CocheraLlena : bool
+        + UltimaActualizacion : DateTime
+    }
+}
+
+' === ENUMS ===
+package "Enums" #FFF3E0 {
+
+    enum EstadoCajon {
+        Libre
+        Ocupado
+    }
+
+    enum EstadoSesion {
+        Activa
+        PendientePago
+        Finalizada
+        Cancelada
+    }
+
+    enum MetodoPago {
+        Efectivo
+        Tarjeta
+        Transferencia
+    }
+
+    enum TipoEvento {
+        SistemaIniciado
+        MovimientoEntrada
+        MovimientoEntradaBloqueado
+        VehiculoSalio
+        CajonOcupado
+        CajonLiberado
+        ParpadeoIniciado
+        ParpadeoTimeout
+        CocheraLlena
+    }
+}
+
+' === HERENCIA ===
+BaseEntity <|-- Usuario
+BaseEntity <|-- Cajon
+BaseEntity <|-- SesionEstacionamiento
+BaseEntity <|-- Pago
+BaseEntity <|-- EventoSensor
+BaseEntity <|-- Tarifa
+BaseEntity <|-- EstadoCochera
+
+' === RELACIONES ===
+Usuario "1" -- "*" SesionEstacionamiento : tiene >
+Cajon "1" -- "*" SesionEstacionamiento : aloja >
+SesionEstacionamiento "1" -- "0..1" Pago : genera >
+
+' === USO DE ENUMS ===
+Cajon ..> EstadoCajon : usa
+SesionEstacionamiento ..> EstadoSesion : usa
+Pago ..> MetodoPago : usa
+EventoSensor ..> TipoEvento : usa
+
+@enduml

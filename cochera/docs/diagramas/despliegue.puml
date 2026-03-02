@@ -1,0 +1,88 @@
+@startuml Diagrama de Despliegue
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam defaultFontSize 11
+
+title Diagrama de Despliegue - Sistema de Cochera Inteligente
+
+node "Cochera Física" #E8F5E9 {
+    node "ESP32 DevKit" as ESP32 {
+        artifact "sketch_jan16a.ino" as Firmware
+        component "WiFi 802.11" as WiFi
+    }
+    
+    node "Sensores HC-SR04" as Sensores {
+        component "Sensor Entrada\n(GPIO 13/12)" as S1
+        component "Sensor Cajón 1\n(GPIO 14/27)" as S2
+        component "Sensor Cajón 2\n(GPIO 26/25)" as S3
+    }
+    
+    node "Actuadores" as Actuadores {
+        component "LED Verde (GPIO 32)" as LedV
+        component "LED Rojo (GPIO 33)" as LedR
+        component "Buzzer (GPIO 15)" as Buzz
+    }
+    
+    Sensores --> ESP32 : Señales\nTrigger/Echo
+    ESP32 --> Actuadores : Control digital
+}
+
+node "Servidor Local (PC)" <<device>> #E3F2FD {
+    
+    node "RabbitMQ Server" <<middleware>> #F3E5F5 {
+        artifact "MQTT Plugin\n(puerto 1883)" as MQTTPlugin
+        artifact "AMQP\n(puerto 5672)" as AMQP
+        artifact "Management UI\n(puerto 15672)" as MgmtUI
+    }
+    
+    node "PostgreSQL 16" <<database>> #FFF3E0 {
+        database "Cochera DB\n(puerto 5432)" as DB
+    }
+    
+    node ".NET 8 Runtime" <<execution environment>> #E3F2FD {
+        artifact "Cochera.Web\n(Blazor Server)\npuerto 5000" as WebApp
+        artifact "Cochera.Worker\n(Background Service)" as WorkerApp
+    }
+}
+
+node "Clientes" <<device>> #FFFDE7 {
+    node "Navegador Web\n(Chrome/Firefox)" as Browser {
+        artifact "Vista Admin" as AdminView
+        artifact "Vista Usuario" as UserView
+    }
+}
+
+' === RED ===
+cloud "Red WiFi Local\n192.168.100.x" as WiFiNet
+
+' === CONEXIONES ===
+ESP32 -down-> WiFiNet : WiFi\n192.168.100.x
+WiFiNet -down-> MQTTPlugin : MQTT\nTCP 1883
+
+WorkerApp --> MQTTPlugin : MQTT Subscribe\n"cola_sensores"
+WorkerApp --> DB : EF Core\nNpgsql TCP 5432
+WorkerApp --> WebApp : SignalR Client\nHTTP /cocherahub
+
+WebApp --> DB : EF Core\nNpgsql TCP 5432
+
+Browser --> WebApp : HTTPS\npuerto 5000\nBlazor Server + SignalR WebSocket
+
+note right of ESP32
+  **Configuración ESP32:**
+  - SSID: "AVRIL@2014"
+  - MQTT Server: 192.168.100.16
+  - MQTT User: esp32 / 123456
+  - Topic: cola_sensores
+  - NTP: pool.ntp.org (UTC-6)
+end note
+
+note right of DB
+  **Cadena de Conexión:**
+  Server=localhost
+  Port=5432
+  Database=Cochera
+  Username=postgres
+  Password=postgres
+end note
+
+@enduml

@@ -1,0 +1,140 @@
+@startuml Secuencia - Flujo Completo de Estacionamiento
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam defaultFontSize 11
+skinparam sequenceMessageAlign center
+
+title Flujo Completo: Entrada de Vehículo → Estacionamiento → Pago → Salida
+
+actor "Vehículo" as Vehiculo
+participant "ESP32\n(Sensores)" as ESP32
+participant "RabbitMQ\n(Broker MQTT)" as MQTT
+participant "Cochera.Worker\n(MqttWorker)" as Worker
+participant "EventoSensorService" as EventoSvc
+participant "CajonService" as CajonSvc
+participant "EstadoCocheraService" as EstadoSvc
+database "PostgreSQL" as DB
+participant "SignalR Hub\n(CocheraHub)" as Hub
+participant "Admin\n(Dashboard)" as Admin
+participant "Usuario\n(Estacionamiento)" as UsuarioUI
+participant "SesionService" as SesionSvc
+
+== FASE 1: Detección de Vehículo en Entrada ==
+
+Vehiculo -> ESP32 : Llega a entrada
+activate ESP32
+ESP32 -> ESP32 : medirDistanciaRapida()\nDistancia < 15cm = detectado
+ESP32 -> ESP32 : tonoBienvenida()
+ESP32 -> ESP32 : LED Verde encendido
+ESP32 -> MQTT : publish("cola_sensores",\n{"evento":"MOVIMIENTO_ENTRADA",...})
+deactivate ESP32
+
+MQTT -> Worker : Mensaje recibido
+activate Worker
+Worker -> EventoSvc : ProcesarMensajeAsync(mensaje, json)
+activate EventoSvc
+EventoSvc -> DB : INSERT EventoSensor
+EventoSvc -> CajonSvc : ActualizarEstadoAsync(1, estado)
+EventoSvc -> CajonSvc : ActualizarEstadoAsync(2, estado)
+EventoSvc -> EstadoSvc : ActualizarEstadoAsync(cajon1, cajon2)
+EstadoSvc -> DB : UPDATE EstadoCochera
+EventoSvc --> Worker : EventoSensorDto
+deactivate EventoSvc
+
+Worker -> Hub : NotificarNuevoEventoAsync(evento)
+Worker -> Hub : NotificarCambioEstadoAsync(estado)
+Worker -> Hub : NotificarVehiculoDetectadoAsync(evento)
+Hub -> Admin : "VehiculoDetectadoEnEntrada"\n(popup notificación)
+Hub -> UsuarioUI : "RecibirEstado"\n(actualizar disponibilidad)
+deactivate Worker
+
+== FASE 2: Admin Registra Sesión ==
+
+Admin -> SesionSvc : IniciarSesionAsync(\n{UsuarioId, CajonId})
+activate SesionSvc
+SesionSvc -> DB : Verificar usuario existe
+SesionSvc -> DB : Verificar cajón libre
+SesionSvc -> DB : Verificar sin sesión activa
+SesionSvc -> DB : Obtener tarifa activa
+SesionSvc -> DB : INSERT SesionEstacionamiento\n(Estado: Activa)
+SesionSvc -> DB : UPDATE Cajón (Ocupado)
+SesionSvc --> Admin : SesionEstacionamientoDto
+deactivate SesionSvc
+
+Admin -> Hub : NotificarNuevaSesionAsync(sesion)
+Hub -> UsuarioUI : "MiNuevaSesion"\n(mostrar sesión activa)
+
+== FASE 3: Vehículo Ocupa Cajón ==
+
+Vehiculo -> ESP32 : Se estaciona en cajón
+activate ESP32
+ESP32 -> ESP32 : medirDistancia()\n< 16cm = OCUPADO\nDebounce 800ms
+ESP32 -> MQTT : publish("cola_sensores",\n{"evento":"CAJON_OCUPADO",...})
+deactivate ESP32
+
+MQTT -> Worker : Mensaje recibido
+Worker -> EventoSvc : ProcesarMensajeAsync()
+EventoSvc -> DB : INSERT EventoSensor
+EventoSvc -> DB : UPDATE Cajón y EstadoCochera
+Worker -> Hub : NotificarCambioEstadoAsync()
+Hub -> Admin : ActualizarCajones
+Hub -> UsuarioUI : ActualizarDisponibilidad
+
+...Tiempo estacionado (minutos/horas)...
+
+== FASE 4: Admin Solicita Cierre de Sesión ==
+
+Admin -> SesionSvc : SolicitarCierreSesionAsync(sesionId)
+activate SesionSvc
+SesionSvc -> SesionSvc : Calcular minutos\nCalcular monto total\n(minutos × tarifa/min)
+SesionSvc -> DB : UPDATE Sesión\n(Estado: PendientePago,\nMontoTotal calculado)
+SesionSvc --> Admin : SesionEstacionamientoDto
+deactivate SesionSvc
+
+Admin -> Hub : NotificarSolicitudCierreSesionAsync(sesion)
+Hub -> UsuarioUI : "SolicitudCierreSesion"\n(mostrar monto a pagar)
+
+== FASE 5: Usuario Confirma Pago ==
+
+UsuarioUI -> SesionSvc : ConfirmarPagoUsuarioAsync(\n{SesionId, UsuarioId, MetodoPago})
+activate SesionSvc
+SesionSvc -> DB : INSERT Pago\n(Monto, MetodoPago, Referencia)
+SesionSvc -> DB : UPDATE Sesión\n(Estado: Finalizada)
+SesionSvc --> UsuarioUI : SesionEstacionamientoDto
+deactivate SesionSvc
+
+UsuarioUI -> Hub : NotificarPagoConfirmadoAsync(sesion)
+Hub -> Admin : "UsuarioPagoConfirmado"\n(confirmar en dashboard)
+
+== FASE 6: Vehículo Sale del Cajón ==
+
+Vehiculo -> ESP32 : Sale del cajón
+activate ESP32
+ESP32 -> ESP32 : medirDistancia()\n>= 16cm = LIBRE\nDebounce 800ms
+ESP32 -> ESP32 : tonoLiberado()
+ESP32 -> MQTT : publish("cola_sensores",\n{"evento":"CAJON_LIBERADO",...})
+deactivate ESP32
+
+MQTT -> Worker : Mensaje recibido
+Worker -> EventoSvc : ProcesarMensajeAsync()
+EventoSvc -> DB : UPDATE Cajón (Libre)
+EventoSvc -> DB : UPDATE EstadoCochera
+Worker -> Hub : NotificarCambioEstadoAsync()
+Hub -> Admin : Cajón actualizado (libre)
+Hub -> UsuarioUI : Disponibilidad actualizada
+
+== FASE 7: Vehículo Pasa por Entrada (Salida) ==
+
+Vehiculo -> ESP32 : Pasa por entrada (saliendo)
+activate ESP32
+ESP32 -> ESP32 : Parpadeo activo?\nSí → fin parpadeo
+ESP32 -> ESP32 : tonoSalidaParpadeo()
+ESP32 -> MQTT : publish("cola_sensores",\n{"evento":"VEHICULO_SALIO",...})
+deactivate ESP32
+
+MQTT -> Worker : Mensaje recibido
+Worker -> EventoSvc : ProcesarMensajeAsync()
+Worker -> Hub : NotificarVehiculoDetectadoAsync()
+Hub -> Admin : "VehiculoSalio"\n(Salida confirmada)
+
+@enduml

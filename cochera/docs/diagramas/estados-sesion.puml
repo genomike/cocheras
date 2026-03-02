@@ -1,0 +1,70 @@
+@startuml Diagrama de Estados - Sesión de Estacionamiento
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam defaultFontSize 12
+
+title Diagrama de Estados: Ciclo de Vida de una Sesión de Estacionamiento
+
+[*] --> Activa : Admin inicia sesión\n(IniciarSesionAsync)
+
+state Activa #E8F5E9 {
+    Activa : Vehículo estacionado
+    Activa : Tiempo corriendo
+    Activa : Monto acumulándose
+    Activa : TarifaPorMinuto × Minutos
+}
+
+state PendientePago #FFF3E0 {
+    PendientePago : Admin solicitó cierre
+    PendientePago : HoraSalida registrada
+    PendientePago : MontoTotal calculado
+    PendientePago : Esperando pago del usuario
+}
+
+state Finalizada #E3F2FD {
+    Finalizada : Pago confirmado
+    Finalizada : Sesión cerrada
+    Finalizada : Registro de Pago creado
+}
+
+state Cancelada #FFEBEE {
+    Cancelada : Sesión cancelada
+    Cancelada : Sin cobro
+}
+
+Activa --> PendientePago : SolicitarCierreSesionAsync()\n[Admin solicita cierre]
+
+Activa --> Finalizada : ConfirmarPagoUsuarioAsync()\n[Pago directo sin solicitud previa]\nó FinalizarSesionAsync()
+
+PendientePago --> Finalizada : ConfirmarPagoUsuarioAsync()\n[Usuario confirma pago]\nCrear Pago + Cerrar automáticamente
+
+PendientePago --> Finalizada : CerrarSesionAsync()\n[Admin cierra después del pago]
+
+Activa --> Cancelada : [Cancelación manual]
+
+Finalizada --> [*]
+Cancelada --> [*]
+
+note right of Activa
+  **Cálculo de Monto:**
+  - minutos = ceil(HoraSalida - HoraEntrada)
+  - Mínimo 1 minuto
+  - MontoTotal = minutos × TarifaPorMinuto
+  - Tarifa default: S/ 8.00/min
+end note
+
+note right of PendientePago
+  **Notificaciones SignalR:**
+  - Admin recibe confirmación
+  - Usuario recibe SolicitudCierreSesion
+  - UI muestra monto a pagar
+end note
+
+note bottom of Finalizada
+  **Tras finalización:**
+  - El cajón NO se libera automáticamente
+  - El sensor ESP32 detectará la salida física
+  - Evento CAJON_LIBERADO actualiza estado
+end note
+
+@enduml

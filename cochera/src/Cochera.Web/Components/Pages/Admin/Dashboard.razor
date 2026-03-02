@@ -298,6 +298,24 @@ else
             if (dashboard != null)
             {
                 dashboard.EstadoActual = estado;
+                // Recargar todo el dashboard para actualizar sesiones, montos, etc.
+                await LoadDashboard();
+                await InvokeAsync(StateHasChanged);
+            }
+        });
+
+        // Handler para ActualizarCajones - también recarga el dashboard completo
+        hubConnection.On<EstadoCocheraDto>("ActualizarCajones", async (estado) =>
+        {
+            _logger?.LogInformation("📡 Dashboard: ActualizarCajones recibido - Cajon1: {C1}, Cajon2: {C2}", 
+                estado.Cajon1Ocupado ? "OCUPADO" : "LIBRE",
+                estado.Cajon2Ocupado ? "OCUPADO" : "LIBRE");
+            
+            if (dashboard != null)
+            {
+                dashboard.EstadoActual = estado;
+                // Recargar todo el dashboard para reflejar cambios en sesiones
+                await LoadDashboard();
                 await InvokeAsync(StateHasChanged);
             }
         });
@@ -312,6 +330,31 @@ else
                 dashboard.TotalEventosHoy++;
                 await InvokeAsync(StateHasChanged);
             }
+        });
+
+        // Handler para cuando se crea una nueva sesión
+        hubConnection.On<SesionEstacionamientoDto>("NuevaSesionCreada", async (sesion) =>
+        {
+            _logger?.LogInformation("📡 Dashboard: NuevaSesionCreada recibido - Usuario: {Usuario}", sesion.UsuarioNombre);
+            await LoadDashboard();
+            await InvokeAsync(StateHasChanged);
+        });
+
+        // Handler para cuando se cierra una sesión
+        hubConnection.On<SesionEstacionamientoDto>("SesionCerradaAdmin", async (sesion) =>
+        {
+            _logger?.LogInformation("📡 Dashboard: SesionCerradaAdmin recibido - Usuario: {Usuario}", sesion.UsuarioNombre);
+            await LoadDashboard();
+            await InvokeAsync(StateHasChanged);
+        });
+
+        // Handler para cuando un usuario confirma el pago
+        hubConnection.On<SesionEstacionamientoDto>("UsuarioPagoConfirmado", async (sesion) =>
+        {
+            _logger?.LogInformation("📡 Dashboard: UsuarioPagoConfirmado recibido - Usuario: {Usuario}", sesion.UsuarioNombre);
+            NotificationService.Notify(NotificationSeverity.Info, "💰 Pago Confirmado", $"El usuario {sesion.UsuarioNombre} confirmó el pago");
+            await LoadDashboard();
+            await InvokeAsync(StateHasChanged);
         });
 
         // Escuchar eventos de vehículos y MOSTRAR POPUP INMEDIATAMENTE
