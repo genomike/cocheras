@@ -29,7 +29,7 @@
 else
 {
     <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="rz-mb-4">
-        <RadzenIcon Icon="directions_car" /> Mi Estacionamiento
+        <span class="icon-text" >[VEHICULO]</span> Mi Estacionamiento
     </RadzenText>
 
     @if (sesionPendientePago != null)
@@ -37,7 +37,7 @@ else
         <!-- ESTADO: Pendiente de Pago -->
         <RadzenCard class="rz-shadow-4 sesion-pago-pendiente rz-mb-4">
             <div style="text-align: center;">
-                <RadzenIcon Icon="payment" Style="font-size: 4rem; color: var(--rz-warning);" />
+                <span class="icon-text" Style="font-size: 4rem; color: var(--rz-warning);" >[PAGO]</span>
                 <RadzenText TextStyle="TextStyle.H4" class="rz-mt-2">
                     ¡Es hora de pagar!
                 </RadzenText>
@@ -88,17 +88,17 @@ else
                 @if (sesionPendientePago.TienePago)
                 {
                     <RadzenAlert AlertStyle="AlertStyle.Success" class="rz-mb-4">
-                        <RadzenIcon Icon="check_circle" /> ¡Pago confirmado! Esperando que el administrador cierre tu sesión...
+                        <span class="icon-text" >[OK]</span> ¡Pago confirmado! Esperando que el administrador cierre tu sesión...
                     </RadzenAlert>
                 }
                 else
                 {
                     <RadzenText TextStyle="TextStyle.Body1" class="rz-mb-4">Selecciona tu método de pago:</RadzenText>
                     <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" JustifyContent="JustifyContent.Center">
-                        <RadzenButton Text="Pagar con Efectivo" Icon="payments" Size="ButtonSize.Large"
+                        <RadzenButton Text="Pagar con Efectivo" Size="ButtonSize.Large"
                             ButtonStyle="ButtonStyle.Success" Click="@(() => ConfirmarPago(MetodoPago.Efectivo))" 
                             IsBusy="@procesandoPago" />
-                        <RadzenButton Text="Pagar con Tarjeta" Icon="credit_card" Size="ButtonSize.Large"
+                        <RadzenButton Text="Pagar con Tarjeta" Size="ButtonSize.Large"
                             ButtonStyle="ButtonStyle.Primary" Click="@(() => ConfirmarPago(MetodoPago.Tarjeta))" 
                             IsBusy="@procesandoPago" />
                     </RadzenStack>
@@ -111,39 +111,39 @@ else
         <!-- ESTADO: Sesión activa -->
         <RadzenCard class="rz-shadow-4 sesion-activa rz-mb-4">
             <RadzenText TextStyle="TextStyle.H4" class="rz-mb-4">
-                <RadzenIcon Icon="local_parking" /> Tienes una sesión activa
+                <span class="icon-text" >[CAJON]</span> Tienes una sesión activa
             </RadzenText>
             
             <RadzenRow Gap="2rem">
                 <RadzenColumn Size="12" SizeMD="6">
-                    <div style="text-align: center; font-size: 8rem; margin-bottom: 1rem;">🚗</div>
+                    <div style="text-align: center; font-size: 8rem; margin-bottom: 1rem;">VEHICULO</div>
                     <RadzenText TextStyle="TextStyle.H3" Style="text-align: center;">Cajón @sesionActiva.CajonNumero</RadzenText>
                 </RadzenColumn>
                 <RadzenColumn Size="12" SizeMD="6">
                     <RadzenStack Gap="1rem">
                         <RadzenCard class="info-card">
-                            <RadzenIcon Icon="schedule" />
+                            <span class="icon-text" >[HORA]</span>
                             <div>
                                 <RadzenText TextStyle="TextStyle.Caption">Hora de entrada</RadzenText>
                                 <RadzenText TextStyle="TextStyle.H5">@sesionActiva.HoraEntrada.ToString("HH:mm:ss")</RadzenText>
                             </div>
                         </RadzenCard>
                         <RadzenCard class="info-card">
-                            <RadzenIcon Icon="timer" />
+                            <span class="icon-text" >[TIEMPO]</span>
                             <div>
                                 <RadzenText TextStyle="TextStyle.Caption">Tiempo estacionado</RadzenText>
                                 <RadzenText TextStyle="TextStyle.H5">@sesionActiva.TiempoFormateado</RadzenText>
                             </div>
                         </RadzenCard>
                         <RadzenCard class="info-card">
-                            <RadzenIcon Icon="attach_money" />
+                            <span class="icon-text" >[TARIFA]</span>
                             <div>
                                 <RadzenText TextStyle="TextStyle.Caption">Tarifa por minuto</RadzenText>
                                 <RadzenText TextStyle="TextStyle.H5">S/ @sesionActiva.TarifaPorMinuto.ToString("N2")</RadzenText>
                             </div>
                         </RadzenCard>
                         <RadzenCard class="info-card monto-total">
-                            <RadzenIcon Icon="payments" />
+                            <span class="icon-text" >[PAGO]</span>
                             <div>
                                 <RadzenText TextStyle="TextStyle.Caption">Monto acumulado</RadzenText>
                                 <RadzenText TextStyle="TextStyle.H3">S/ @sesionActiva.MontoTotal.ToString("N2")</RadzenText>
@@ -155,7 +155,7 @@ else
             
             <!-- Mensaje informativo: El admin debe solicitar el cierre -->
             <RadzenAlert AlertStyle="AlertStyle.Info" class="rz-mt-4">
-                <RadzenIcon Icon="info" /> Cuando estés listo para salir, el administrador procesará tu salida y te solicitará el pago.
+                <span class="icon-text" >[INFO]</span> Cuando estés listo para salir, el administrador procesará tu salida y te solicitará el pago.
             </RadzenAlert>
         </RadzenCard>
     }
@@ -185,7 +185,7 @@ else
                     </RadzenStack>
                 </RadzenCard>
                 
-                <RadzenButton Text="Ver mi historial" Icon="history" ButtonStyle="ButtonStyle.Primary" 
+                <RadzenButton Text="Ver mi historial" ButtonStyle="ButtonStyle.Primary" 
                     Style="margin-top: 2rem;" Click="@(() => Navigation.NavigateTo("/usuario/historial"))" />
             </div>
         </RadzenCard>
@@ -194,7 +194,7 @@ else
     {
         <!-- ESTADO: Sin sesión activa - MOSTRAR DISPONIBILIDAD -->
         <div class="page-header">
-            <RadzenIcon Icon="local_parking" class="page-icon" />
+            <span class="icon-text page-icon" >[CAJON]</span>
             <span class="page-title">Mi Estacionamiento</span>
         </div>
 
@@ -217,7 +217,7 @@ else
                     }
                     else
                     {
-                        <span>✅</span>
+                        <span>OK</span>
                     }
                 </div>
                 <div class="estado-texto">
@@ -241,11 +241,11 @@ else
                         <div class="cajon-emoji">
                             @if (cajon.Estado == EstadoCajon.Ocupado)
                             {
-                                <span>🚗</span>
+                                <span>VEHICULO</span>
                             }
                             else
                             {
-                                <span>🅿️</span>
+                                <span>SISTEMA</span>
                             }
                         </div>
                         <div class="cajon-numero">Cajón @cajon.Numero</div>
@@ -268,7 +268,7 @@ else
             {
                 <RadzenCard class="rz-shadow-3 rz-mt-4">
                     <RadzenText TextStyle="TextStyle.H6" class="rz-mb-2">
-                        <RadzenIcon Icon="attach_money" /> Información de Tarifa
+                        <span class="icon-text" >[TARIFA]</span> Información de Tarifa
                     </RadzenText>
                     <RadzenText>Tarifa actual: <strong>S/ @tarifaActual.PrecioPorMinuto.ToString("N2") por minuto</strong></RadzenText>
                     <RadzenText TextStyle="TextStyle.Caption" class="rz-mt-2">
@@ -279,7 +279,7 @@ else
 
             <!-- Mensaje informativo -->
             <RadzenAlert AlertStyle="AlertStyle.Info" class="rz-mt-4">
-                <RadzenIcon Icon="info" /> El administrador registrará tu entrada cuando llegues a la cochera.
+                <span class="icon-text" >[INFO]</span> El administrador registrará tu entrada cuando llegues a la cochera.
             </RadzenAlert>
         }
     }
@@ -530,7 +530,7 @@ else
             mostrarMensajeDespedida = false;
             await InvokeAsync(StateHasChanged);
             
-            NotificationService.Notify(NotificationSeverity.Success, "🚗 ¡Sesión Iniciada!", 
+            NotificationService.Notify(NotificationSeverity.Success, "VEHICULO ¡Sesión Iniciada!", 
                 $"Bienvenido! Te asignamos el Cajón {sesion.CajonNumero}");
         });
 
@@ -552,7 +552,7 @@ else
             sesionFinalizada = sesion;
             mostrarMensajeDespedida = true;
             await InvokeAsync(StateHasChanged);
-            NotificationService.Notify(NotificationSeverity.Success, "✅ ¡Hasta pronto!", 
+            NotificationService.Notify(NotificationSeverity.Success, "OK ¡Hasta pronto!", 
                 "Tu sesión ha sido cerrada. ¡Gracias por visitarnos!");
             
             // Ocultar mensaje de despedida después de 30 segundos
@@ -688,7 +688,7 @@ else
                 sesionFinalizada = sesionFinal;
                 mostrarMensajeDespedida = true;
                 
-                NotificationService.Notify(NotificationSeverity.Success, "✅ ¡Pago exitoso!", 
+                NotificationService.Notify(NotificationSeverity.Success, "OK ¡Pago exitoso!", 
                     "Tu pago ha sido procesado. ¡Gracias por visitarnos!");
                 
                 // Ocultar mensaje de despedida después de 30 segundos
@@ -725,3 +725,5 @@ else
         }
     }
 }
+
+

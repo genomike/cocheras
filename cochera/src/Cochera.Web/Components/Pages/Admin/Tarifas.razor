@@ -21,9 +21,9 @@ else
 {
 <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" class="rz-mb-4">
     <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="rz-mb-0">
-        <RadzenIcon Icon="attach_money" /> Administración de Tarifas
+        <span class="icon-text" >[TARIFA]</span> Administración de Tarifas
     </RadzenText>
-    <RadzenButton Icon="refresh" Text="Actualizar" ButtonStyle="ButtonStyle.Light" Click="@CargarDatos" />
+    <RadzenButton Text="Actualizar" ButtonStyle="ButtonStyle.Light" Click="@CargarDatos" />
 </RadzenStack>
 
 <RadzenRow Gap="1rem">
@@ -69,7 +69,7 @@ else
                     <RadzenTextBox @bind-Value="@descripcion" Style="width: 100%;" />
                 </RadzenFormField>
 
-                <RadzenButton Text="Actualizar Tarifa" Icon="save" ButtonStyle="ButtonStyle.Primary" 
+                <RadzenButton Text="Actualizar Tarifa" ButtonStyle="ButtonStyle.Primary" 
                     Style="width: 100%;" Click="@ActualizarTarifa" IsBusy="@procesando" />
             </RadzenStack>
         </RadzenCard>
@@ -164,3 +164,5 @@ else
         }
     }
 }
+
+

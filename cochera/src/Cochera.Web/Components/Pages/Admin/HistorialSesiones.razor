@@ -21,9 +21,9 @@ else
 {
     <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" class="rz-mb-4">
         <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="rz-mb-0">
-            <RadzenIcon Icon="history" /> Historial de Sesiones
+            <span class="icon-text" >[HISTORIAL]</span> Historial de Sesiones
         </RadzenText>
-        <RadzenButton Icon="refresh" Text="Actualizar" ButtonStyle="ButtonStyle.Light" Click="@LoadSesiones" />
+        <RadzenButton Text="Actualizar" ButtonStyle="ButtonStyle.Light" Click="@LoadSesiones" />
     </RadzenStack>
 
     <RadzenCard class="rz-shadow-3 rz-mb-4">
@@ -39,8 +39,8 @@ else
                 </RadzenFormField>
             </RadzenColumn>
             <RadzenColumn Size="12" SizeMD="3">
-                <RadzenButton Icon="search" Text="Buscar" Click="@LoadSesiones" />
-                <RadzenButton Icon="refresh" Text="Limpiar" ButtonStyle="ButtonStyle.Light" Click="@LimpiarFiltros" class="rz-ml-2" />
+                <RadzenButton Text="Buscar" Click="@LoadSesiones" />
+                <RadzenButton Text="Limpiar" ButtonStyle="ButtonStyle.Light" Click="@LimpiarFiltros" class="rz-ml-2" />
             </RadzenColumn>
         </RadzenRow>
     </RadzenCard>
@@ -123,3 +123,5 @@ else
         await LoadSesiones();
     }
 }
+
+

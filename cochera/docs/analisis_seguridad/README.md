@@ -4,9 +4,7 @@
 
 Este directorio contiene un **análisis exhaustivo de seguridad de software** del sistema Cochera Inteligente, realizado como parte del proyecto académico de la Maestría en Sistemas Embebidos.
 
-El análisis se realizó sobre el código fuente completo del sistema, aplicando marcos de referencia reconocidos internacionalmente: **OWASP Top 10:2021**, **OWASP IoT Top 10:2018**, **CWE/SANS Top 25** y **CVSS v3.1**.
-
-> **Actualización Marzo 2026:** Se implementó autenticación real con ASP.NET Core Identity, lo que mitigó las vulnerabilidades más críticas del sistema (V-001, V-002, V-008, V-009, V-014). Este documento refleja el estado de seguridad actualizado post-remediación.
+El análisis se realizó sobre el código fuente completo del sistema en su estado actual (con autenticación ASP.NET Core Identity implementada), aplicando marcos de referencia reconocidos internacionalmente: **OWASP Top 10:2021**, **OWASP IoT Top 10:2018**, **CWE/SANS Top 25** y **CVSS v3.1**.
 
 ---
 
@@ -14,89 +12,92 @@ El análisis se realizó sobre el código fuente completo del sistema, aplicando
 
 | # | Documento | Descripción |
 |---|-----------|------------|
-| 01 | [Descripción del Sistema](01-descripcion-del-sistema.md) | Arquitectura, componentes, tecnologías, flujos de datos y superficie de ataque del sistema (actualizada) |
-| 02 | [Amenazas y Vulnerabilidades (OWASP)](02-amenazas-y-vulnerabilidades-owasp.md) | 18 vulnerabilidades mapeadas al OWASP Top 10:2021 y OWASP IoT Top 10:2018. **7 mitigadas, 11 pendientes** |
-| 03 | [Análisis de Código Inseguro](03-analisis-codigo-inseguro.md) | 23 hallazgos de código inseguro con fragmentos actualizados, CWE y escenarios. **10 corregidos, 13 pendientes** |
-| 04 | [Propuesta de Mejoras](04-propuesta-mejoras.md) | 18 propuestas de mejora priorizadas P0-P3. **4 implementadas (P0), 14 pendientes** |
-| 05 | [Pruebas de Seguridad (SAST/DAST)](05-pruebas-sast-dast.md) | Guía de herramientas de prueba con configuraciones actualizadas para el sistema con Identity |
-| 06 | [Gestión de Vulnerabilidades y Parcheo](06-gestion-vulnerabilidades.md) | Ciclo de vida, SLAs, Dependabot/Snyk, plan de respuesta a incidentes. Registro actualizado |
-| 07 | [Conclusiones y Reflexiones](07-conclusiones.md) | Resumen ejecutivo actualizado, evaluación OWASP SAMM mejorada, recomendaciones revisadas |
+| 01 | [Descripción del Sistema](01-descripcion-del-sistema.md) | Arquitectura, componentes, tecnologías, flujos de datos y superficie de ataque |
+| 02 | [Amenazas y Vulnerabilidades (OWASP)](02-amenazas-y-vulnerabilidades-owasp.md) | 14 vulnerabilidades identificadas mapeadas al OWASP Top 10:2021 y OWASP IoT Top 10:2018 |
+| 03 | [Análisis de Código Inseguro](03-analisis-codigo-inseguro.md) | 16 hallazgos de código inseguro con fragmentos, CWE y escenarios de explotación |
+| 04 | [Propuesta de Mejoras](04-propuesta-mejoras.md) | 16 propuestas de mejora priorizadas P0-P3 con estimaciones de esfuerzo |
+| 05 | [Pruebas de Seguridad (SAST/DAST)](05-pruebas-sast-dast.md) | Guía de herramientas de prueba con configuraciones para el sistema |
+| 06 | [Gestión de Vulnerabilidades y Parcheo](06-gestion-vulnerabilidades.md) | Ciclo de vida, SLAs, plan de respuesta a incidentes |
+| 07 | [Conclusiones y Reflexiones](07-conclusiones.md) | Resumen ejecutivo, evaluación OWASP SAMM, recomendaciones |
 
 ---
 
-## Resumen de Hallazgos (Actualizado — Marzo 2026)
+## Resumen de Hallazgos
 
-### Estado General Post-Remediación
+### Vulnerabilidades Identificadas
 
-| Métrica | Antes | Después | Cambio |
-|---------|-------|---------|--------|
-| Vulnerabilidades OWASP totales | 18 | 18 | — |
-| ✅ Mitigadas | 0 | 7 | +7 |
-| ⚠️ Parcialmente mitigadas | 0 | 2 | +2 |
-| ❌ Pendientes | 18 | 9 | -9 |
-| Hallazgos de código inseguro | 23 | 23 | — |
-| ✅ Hallazgos corregidos | 0 | 10 | +10 |
-| ❌ Hallazgos pendientes | 23 | 13 | -13 |
-| Categorías OWASP con vulnerabilidades | 9/10 | 7/10 | -2 |
+Se identificaron **14 vulnerabilidades** en el sistema, distribuidas por severidad:
 
-### Vulnerabilidades Críticas — Estado Actual
+| Severidad | Cantidad | CVSS |
+|-----------|----------|------|
+| [CRITICA] Crítica (9.0+) | 1 | 9.1 |
+| [ALTA] Alta (7.0–8.9) | 5 | 7.0–8.6 |
+| [MEDIA] Media (4.0–6.9) | 7 | 4.3–6.5 |
+| [BAJA] Baja (< 4.0) | 1 | 3.5 |
+| **Total** | **14** | **Promedio: 6.2** |
 
-| CVSS | Vulnerabilidad | Componente | Estado |
-|------|---------------|-----------|--------|
-| ~~9.8~~ | ~~Sin autenticación~~ | ~~Cochera.Web~~ | ✅ **MITIGADA** — ASP.NET Core Identity |
-| ~~9.8~~ | ~~Modelo sin contraseñas~~ | ~~Cochera.Domain~~ | ✅ **MITIGADA** — IdentityUser con PasswordHash |
-| ~~9.8~~ | ~~Diseño sin seguridad~~ | ~~Diseño general~~ | ⚠️ **PARCIAL** — Auth/AuthZ implementados |
-| ~~9.1~~ | ~~SignalR Hub sin autorización~~ | ~~Cochera.Web~~ | ⚠️ **PARCIAL** — Métodos protegidos, clase sin `[Authorize]` global |
-| 8.6 | Credenciales hardcoded en firmware | ESP32 | ❌ Pendiente |
-| 8.1 | MQTT sin cifrado TLS | Infraestructura | ❌ Pendiente |
-| 7.5 | Credenciales de BD en código fuente | Cochera.Web | ❌ Pendiente |
+### Vulnerabilidades por Severidad
 
-### Distribución Actualizada por Severidad
+| ID | Vulnerabilidad | CVSS | Componente |
+|----|---------------|------|-----------|
+| V-001 | Credenciales hardcoded en firmware ESP32 | 9.1 | ESP32 |
+| V-002 | Acceso a BD con superusuario PostgreSQL | 8.6 | Infraestructura |
+| V-003 | Inyección vía mensajes MQTT sin validación | 8.1 | Cochera.Worker |
+| V-004 | Sin integridad en mensajes MQTT (sin HMAC) | 8.1 | Infraestructura |
+| V-005 | MQTT sin cifrado TLS (texto plano) | 7.4 | Infraestructura |
+| V-006 | IDOR — sin verificación de ownership en servicios | 7.5 | Cochera.Application |
+| V-007 | Sin logging/auditoría de seguridad | 7.0 | Cochera.Web |
+| V-008 | Sin Secure Boot en ESP32 | 6.5 | Hardware |
+| V-009 | SignalR Hub sin `[Authorize]` a nivel de clase | 5.5 | Cochera.Web |
+| V-010 | Sin headers de seguridad HTTP | 5.3 | Cochera.Web |
+| V-011 | Sin análisis de CVEs en dependencias | 5.0 | Todos |
+| V-012 | LockoutEnabled deshabilitado + sin rate limiting | 5.0 | Cochera.Web |
+| V-013 | AntiForgery deshabilitado en endpoint de login | 4.3 | Cochera.Web |
+| V-014 | MQTT reconexión sin backoff exponencial | 3.5 | Cochera.Infrastructure |
 
-| Severidad | Total | Mitigadas | Pendientes |
-|-----------|-------|-----------|------------|
-| 🔴 Crítico (5) | 5 | 3 ✅ + 2 ⚠️ | 0 puras |
-| 🟠 Alto (8) | 8 | 2 ✅ | 6 |
-| 🟡 Medio (5) | 5 | 0 | 5 |
-| **Total** | **18** | **7** | **11** |
+### Hallazgos de Código Inseguro
+
+Se identificaron **16 hallazgos** de código inseguro en 9 archivos del sistema.
+
+| Severidad | Cantidad |
+|-----------|----------|
+| [CRITICA] Crítica | 2 |
+| [ALTA] Alta | 6 |
+| [MEDIA] Media | 7 |
+| [BAJA] Baja | 1 |
+
+### Distribución por Categoría OWASP Top 10:2021
+
+| Categoría | Vulnerabilidades |
+|-----------|-----------------|
+| A01 — Broken Access Control | V-006, V-009 |
+| A02 — Cryptographic Failures | V-005 |
+| A03 — Injection | V-003 |
+| A04 — Insecure Design | V-012, V-013 |
+| A05 — Security Misconfiguration | V-002, V-010 |
+| A06 — Vulnerable and Outdated Components | V-011 |
+| A09 — Security Logging and Monitoring Failures | V-007 |
+
+### Distribución por OWASP IoT Top 10:2018
+
+| Categoría | Vulnerabilidades |
+|-----------|-----------------|
+| I1 — Weak/Hardcoded Passwords | V-001 |
+| I3 — Insecure Ecosystem Interfaces | V-004, V-005 |
+| I5 — Lack of Secure Update Mechanism | V-008 |
 
 ---
 
-## Implementación Realizada (Marzo 2026)
+## Seguridad Actual del Sistema
 
-### Mejoras P0 Implementadas
+El sistema cuenta actualmente con los siguientes controles de seguridad implementados:
 
-| ID | Mejora | Estado | Detalle |
-|----|--------|--------|---------|
-| M-01 | ASP.NET Core Identity | ✅ Implementada | `IdentityUser`, roles (Admin/User), `PasswordHasher`, cookies seguras, bloqueo por intentos fallidos |
-| M-02 | `[Authorize]` en SignalR Hub | ✅ Implementada | Métodos protegidos con `[Authorize(Roles)]`, auto-join en `OnConnectedAsync`, validación de identidad |
-| M-01b | Página de Login con form POST | ✅ Implementada | Login vía HTTP POST (`/auth/login`) fuera del circuito interactivo de Blazor |
-| M-01c | Protección de rutas por roles | ✅ Implementada | `[Authorize(Roles = "Admin")]` en páginas admin, `[Authorize(Roles = "User")]` en páginas usuario |
-
-### Arquitectura de Seguridad Implementada
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│                    FLUJO DE AUTENTICACIÓN                      │
-│                                                                │
-│   Navegador                    Servidor (.NET 8)              │
-│   ┌────────┐   POST /auth/login   ┌─────────────────┐        │
-│   │ Login  │ ────────────────────► │ SignInManager    │        │
-│   │ (HTML) │                       │ .PasswordSignIn  │        │
-│   └────────┘   Cookie: Cochera.Auth│ Async()          │        │
-│       ▲        ◄─────────────────  └─────────────────┘        │
-│       │                                                        │
-│   ┌────────┐   Cookie en headers   ┌─────────────────┐        │
-│   │ Blazor │ ────────────────────► │ AuthenticationState│      │
-│   │ Server │                       │ Provider          │      │
-│   └────────┘                       └─────────────────┘        │
-│       │                                                        │
-│   ┌────────┐   Cookie en upgrade   ┌─────────────────┐        │
-│   │SignalR │ ────────────────────► │ Context.User     │        │
-│   │ Hub    │                       │ .IsInRole()      │        │
-│   └────────┘                       └─────────────────┘        │
-└──────────────────────────────────────────────────────────────┘
-```
+- **Autenticación**: ASP.NET Core Identity con `IdentityUser`, `IdentityRole`, y `PasswordHasher` (PBKDF2-HMAC-SHA256)
+- **Cookie de sesión**: `Cochera.Auth` con HttpOnly, SlidingExpiration (8 horas)
+- **Autorización por roles**: `Admin` y `User` con `AuthorizeRouteView` en todas las rutas
+- **SignalR parcial**: `[Authorize(Roles = "Admin")]` en `UnirseComoAdmin()`, `[Authorize]` con validación de identidad en `UnirseComoUsuario()`
+- **Hashing de contraseñas**: PBKDF2-HMAC-SHA256 automático vía Identity
+- **Login fuera de circuito Blazor**: HTTP POST a `/auth/login` para evitar conflictos de cookies en InteractiveServer
 
 ---
 
@@ -112,26 +113,17 @@ El análisis se realizó sobre el código fuente completo del sistema, aplicando
 
 ## Archivos Analizados
 
-Se realizó revisión de seguridad sobre los siguientes **17 archivos críticos** (13 originales + 4 nuevos):
+Se realizó revisión de seguridad sobre **17 archivos críticos**:
 
-| Proyecto | Archivo | Estado |
-|----------|---------|--------|
-| Cochera.Web | Program.cs | 🔄 Modificado (Identity, Auth middleware, endpoints login/logout) |
-| Cochera.Web | CocheraHub.cs | 🔄 Modificado (`[Authorize]` en métodos, auto-join, validaciones) |
-| Cochera.Web | UsuarioActualService.cs | 🔄 Modificado (usa `AuthenticationStateProvider`) |
-| Cochera.Web | MainLayout.razor | 🔄 Modificado (`<AuthorizeView>`, botón logout) |
-| Cochera.Web | Login.razor | 🆕 Nuevo (formulario HTML POST) |
-| Cochera.Web | AccessDenied.razor | 🆕 Nuevo (página de acceso denegado) |
-| Cochera.Web | RedirectToLogin.razor | 🆕 Nuevo (componente de redirección) |
-| Cochera.Web | Routes.razor | 🔄 Modificado (`<AuthorizeRouteView>`) |
-| Cochera.Web | App.razor | 🔄 Modificado (`<CascadingAuthenticationState>`) |
-| Cochera.Infrastructure | CocheraDbContext.cs | 🔄 Modificado (`IdentityDbContext`, seed roles/users con PasswordHasher) |
-| Cochera.Application | SesionService.cs, EventoSensorService.cs, UsuarioService.cs, TarifaService.cs | Sin cambios |
-| Cochera.Infrastructure | MqttConsumerService.cs, MqttSettings.cs | Sin cambios |
-| Cochera.Worker | MqttWorker.cs, SignalRNotificationService.cs | Sin cambios |
-| Firmware | sketch_jan16a.ino | Sin cambios |
+| Proyecto | Archivo |
+|----------|---------|
+| Cochera.Web | Program.cs, CocheraHub.cs, UsuarioActualService.cs, Login.razor, MainLayout.razor, Routes.razor, App.razor, appsettings.json |
+| Cochera.Infrastructure | CocheraDbContext.cs, MqttConsumerService.cs |
+| Cochera.Application | SesionService.cs, EventoSensorService.cs, UsuarioService.cs |
+| Cochera.Worker | MqttWorker.cs, SignalRNotificationService.cs |
+| Firmware | sketch_jan16a.ino |
 
 ---
 
-*Análisis original: Enero 2025*
-*Actualización post-remediación: Marzo 2026*
+*Marzo 2026*
+

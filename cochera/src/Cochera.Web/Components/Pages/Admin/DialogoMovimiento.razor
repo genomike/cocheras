@@ -8,11 +8,11 @@
     <!-- Toggle Entrada/Salida -->
     <RadzenCard class="rz-p-3">
         <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" JustifyContent="JustifyContent.Center">
-            <RadzenButton Text="🚗 Entrada" Icon="login" 
+            <RadzenButton Text="VEHICULO Entrada" 
                 ButtonStyle="@(esEntrada ? ButtonStyle.Success : ButtonStyle.Light)" 
                 Size="ButtonSize.Large"
                 Click="@(() => CambiarModo(true))" />
-            <RadzenButton Text="🚗 Salida" Icon="logout" 
+            <RadzenButton Text="VEHICULO Salida" 
                 ButtonStyle="@(!esEntrada ? ButtonStyle.Warning : ButtonStyle.Light)" 
                 Size="ButtonSize.Large"
                 Click="@(() => CambiarModo(false))" />
@@ -23,7 +23,7 @@
     {
         <!-- Modo Entrada -->
         <RadzenText TextStyle="TextStyle.H6" Style="color: var(--rz-success);">
-            <RadzenIcon Icon="login" /> Registrar Nueva Entrada
+            <span class="icon-text" >[ENTRADA]</span> Registrar Nueva Entrada
         </RadzenText>
 
         <RadzenFormField Text="Seleccionar Usuario" Variant="Variant.Outlined" Style="width: 100%;">
@@ -53,7 +53,7 @@
 
         <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" JustifyContent="JustifyContent.End">
             <RadzenButton Text="Cancelar" ButtonStyle="ButtonStyle.Light" Click="@Cancelar" />
-            <RadzenButton Text="Registrar Entrada" Icon="login" ButtonStyle="ButtonStyle.Success" 
+            <RadzenButton Text="Registrar Entrada" ButtonStyle="ButtonStyle.Success" 
                 Disabled="@(usuarioSeleccionado <= 0 || cajonSeleccionado <= 0)"
                 Click="@ConfirmarEntrada" />
         </RadzenStack>
@@ -62,14 +62,14 @@
     {
         <!-- Modo Salida -->
         <RadzenText TextStyle="TextStyle.H6" Style="color: var(--rz-warning);">
-            <RadzenIcon Icon="logout" /> Registrar Salida de Vehículo
+            <span class="icon-text" >[SALIDA]</span> Registrar Salida de Vehículo
         </RadzenText>
 
         @if (sesionSeleccionada != null)
         {
             <!-- Sesión pre-seleccionada automáticamente -->
             <RadzenAlert AlertStyle="AlertStyle.Success" class="rz-mb-2">
-                <RadzenIcon Icon="check_circle" /> Usuario identificado automáticamente
+                <span class="icon-text" >[OK]</span> Usuario identificado automáticamente
             </RadzenAlert>
             
             <RadzenCard class="rz-background-color-warning-lighter">
@@ -86,7 +86,7 @@
 
             <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" JustifyContent="JustifyContent.End" class="rz-mt-3">
                 <RadzenButton Text="Cancelar" ButtonStyle="ButtonStyle.Light" Click="@Cancelar" />
-                <RadzenButton Text="Confirmar Salida" Icon="logout" ButtonStyle="ButtonStyle.Warning" 
+                <RadzenButton Text="Confirmar Salida" ButtonStyle="ButtonStyle.Warning" 
                     Click="@ConfirmarSalida" />
             </RadzenStack>
         }
@@ -120,7 +120,7 @@
 
             <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" JustifyContent="JustifyContent.End">
                 <RadzenButton Text="Cancelar" ButtonStyle="ButtonStyle.Light" Click="@Cancelar" />
-                <RadzenButton Text="Solicitar Salida" Icon="exit_to_app" ButtonStyle="ButtonStyle.Warning" 
+                <RadzenButton Text="Solicitar Salida" ButtonStyle="ButtonStyle.Warning" 
                     Disabled="@(sesionSeleccionada == null)"
                     Click="@ConfirmarSalida" />
             </RadzenStack>
@@ -217,3 +217,5 @@
         public SesionEstacionamientoDto? SesionSalida { get; set; }
     }
 }
+
+

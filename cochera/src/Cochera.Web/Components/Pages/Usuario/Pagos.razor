@@ -20,14 +20,14 @@
 else
 {
     <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="rz-mb-4">
-        <RadzenIcon Icon="payment" /> Mis Pagos
+        <span class="icon-text" >[PAGO]</span> Mis Pagos
     </RadzenText>
 
     <!-- Resumen -->
     <RadzenRow Gap="1rem" class="rz-mb-4">
         <RadzenColumn Size="12" SizeMD="4">
             <RadzenCard class="rz-shadow-3 summary-card">
-                <RadzenIcon Icon="payments" Style="font-size: 3rem; color: var(--rz-success);" />
+                <span class="icon-text" Style="font-size: 3rem; color: var(--rz-success);" >[PAGO]</span>
                 <div>
                     <RadzenText TextStyle="TextStyle.Caption">Total Pagado</RadzenText>
                     <RadzenText TextStyle="TextStyle.H4">S/ @totalPagado.ToString("N2")</RadzenText>
@@ -36,7 +36,7 @@ else
         </RadzenColumn>
         <RadzenColumn Size="12" SizeMD="4">
             <RadzenCard class="rz-shadow-3 summary-card">
-                <RadzenIcon Icon="receipt" Style="font-size: 3rem; color: var(--rz-primary);" />
+                <span class="icon-text" Style="font-size: 3rem; color: var(--rz-primary);" >[RECIBO]</span>
                 <div>
                     <RadzenText TextStyle="TextStyle.Caption">Total Sesiones</RadzenText>
                     <RadzenText TextStyle="TextStyle.H4">@sesionesPagadas.Count</RadzenText>
@@ -45,7 +45,7 @@ else
         </RadzenColumn>
         <RadzenColumn Size="12" SizeMD="4">
             <RadzenCard class="rz-shadow-3 summary-card">
-                <RadzenIcon Icon="timer" Style="font-size: 3rem; color: var(--rz-info);" />
+                <span class="icon-text" Style="font-size: 3rem; color: var(--rz-info);" >[TIEMPO]</span>
                 <div>
                     <RadzenText TextStyle="TextStyle.Caption">Total Minutos</RadzenText>
                     <RadzenText TextStyle="TextStyle.H4">@totalMinutos min</RadzenText>
@@ -57,7 +57,7 @@ else
     <!-- Lista de Pagos -->
     <RadzenCard class="rz-shadow-3">
         <RadzenText TextStyle="TextStyle.H5" class="rz-mb-4">
-            <RadzenIcon Icon="history" /> Historial de Pagos
+            <span class="icon-text" >[HISTORIAL]</span> Historial de Pagos
         </RadzenText>
 
         @if (sesionesPagadas.Any())
@@ -81,7 +81,7 @@ else
                     </RadzenDataGridColumn>
                     <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Title="Estado" Width="100px">
                         <Template Context="sesion">
-                            <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="✓ Pagado" />
+                            <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="OK Pagado" />
                         </Template>
                     </RadzenDataGridColumn>
                 </Columns>
@@ -90,7 +90,7 @@ else
         else
         {
             <RadzenAlert AlertStyle="AlertStyle.Info">
-                <RadzenIcon Icon="info" /> No tienes pagos registrados aún.
+                <span class="icon-text" >[INFO]</span> No tienes pagos registrados aún.
             </RadzenAlert>
         }
     </RadzenCard>
@@ -100,7 +100,7 @@ else
         <!-- Gráfico de pagos por mes -->
         <RadzenCard class="rz-shadow-3 rz-mt-4">
             <RadzenText TextStyle="TextStyle.H5" class="rz-mb-4">
-                <RadzenIcon Icon="bar_chart" /> Pagos por Mes
+                <span class="icon-text" >[GRAFICA]</span> Pagos por Mes
             </RadzenText>
             <RadzenChart>
                 <RadzenColumnSeries Data="@pagosPorMes" CategoryProperty="Mes" ValueProperty="Total" Title="Total Pagado" />
@@ -169,3 +169,5 @@ else
         public decimal Total { get; set; }
     }
 }
+
+

@@ -11,20 +11,20 @@
     <RadzenHeader>
         <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0" class="header-content">
             <RadzenSidebarToggle Click="@(() => sidebarExpanded = !sidebarExpanded)" />
-            <RadzenLabel Text="🅿️ Sistema de Cochera" class="app-title" />
+            <RadzenLabel Text="Sistema de Cochera" class="app-title" />
             <div style="flex-grow: 1;"></div>
             <AuthorizeView>
                 <Authorized>
                     @if (UsuarioActualService.EstaLogueado)
                     {
                         <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.25rem" class="user-info">
-                            <RadzenIcon Icon="@(UsuarioActualService.EsAdmin ? "admin_panel_settings" : "person")" Style="font-size: 1rem;" />
+                            <span class="icon-text" Style="font-size: 1rem;" >[ROL]</span>
                             <span class="user-name">@UsuarioActualService.UsuarioActual?.Nombre</span>
                             @if (UsuarioActualService.EsAdmin)
                             {
                                 <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="Admin" class="admin-badge" />
                             }
-                            <RadzenButton Icon="logout" Text="Salir" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="CerrarSesion" />
+                            <RadzenButton Text="Salir" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="CerrarSesion" />
                         </RadzenStack>
                     }
                 </Authorized>
@@ -35,28 +35,28 @@
         <RadzenPanelMenu Style="flex: 1;">
             @if (!UsuarioActualService.EstaLogueado)
             {
-                <RadzenPanelMenuItem Text="Iniciar sesión" Icon="login" Path="/login" />
+                <RadzenPanelMenuItem Text="Iniciar sesión" Path="/login" />
             }
             else if (UsuarioActualService.EsAdmin)
             {
                 <!-- Menú de Administrador -->
-                <RadzenPanelMenuItem Text="Dashboard" Icon="dashboard" Path="/admin/dashboard" />
-                <RadzenPanelMenuItem Text="Gestión Entrada/Salida" Icon="swap_horiz" Path="/admin/gestion-entrada" />
-                <RadzenPanelMenuItem Text="Sesiones Activas" Icon="local_parking" Path="/admin/sesiones" />
-                <RadzenPanelMenuItem Text="Historial Sesiones" Icon="history" Path="/admin/historial" />
-                <RadzenPanelMenuItem Text="Eventos Sensores" Icon="sensors" Path="/admin/eventos" />
-                <RadzenPanelMenuItem Text="Gestión" Icon="settings" Expanded="true">
-                    <RadzenPanelMenuItem Text="Tarifas" Icon="attach_money" Path="/admin/tarifas" />
-                    <RadzenPanelMenuItem Text="Cajones" Icon="garage" Path="/admin/cajones" />
+                <RadzenPanelMenuItem Text="Dashboard" Path="/admin/dashboard" />
+                <RadzenPanelMenuItem Text="Gestión Entrada/Salida" Path="/admin/gestion-entrada" />
+                <RadzenPanelMenuItem Text="Sesiones Activas" Path="/admin/sesiones" />
+                <RadzenPanelMenuItem Text="Historial Sesiones" Path="/admin/historial" />
+                <RadzenPanelMenuItem Text="Eventos Sensores" Path="/admin/eventos" />
+                <RadzenPanelMenuItem Text="Gestión" Expanded="true">
+                    <RadzenPanelMenuItem Text="Tarifas" Path="/admin/tarifas" />
+                    <RadzenPanelMenuItem Text="Cajones" Path="/admin/cajones" />
                 </RadzenPanelMenuItem>
-                <RadzenPanelMenuItem Text="Reportes" Icon="bar_chart" Path="/admin/reportes" />
+                <RadzenPanelMenuItem Text="Reportes" Path="/admin/reportes" />
             }
             else
             {
                 <!-- Menú de Usuario Normal -->
-                <RadzenPanelMenuItem Text="Mi Estacionamiento" Icon="directions_car" Path="/usuario/estacionamiento" />
-                <RadzenPanelMenuItem Text="Mis Pagos" Icon="payment" Path="/usuario/pagos" />
-                <RadzenPanelMenuItem Text="Mi Historial" Icon="history" Path="/usuario/historial" />
+                <RadzenPanelMenuItem Text="Mi Estacionamiento" Path="/usuario/estacionamiento" />
+                <RadzenPanelMenuItem Text="Mis Pagos" Path="/usuario/pagos" />
+                <RadzenPanelMenuItem Text="Mi Historial" Path="/usuario/historial" />
             }
         </RadzenPanelMenu>
     </RadzenSidebar>
@@ -172,3 +172,5 @@
         UsuarioActualService.OnUsuarioCambiado -= OnUsuarioCambiadoHandler;
     }
 }
+
+

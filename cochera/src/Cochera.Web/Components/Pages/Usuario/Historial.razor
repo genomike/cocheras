@@ -20,7 +20,7 @@
 else
 {
     <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="rz-mb-4">
-        <RadzenIcon Icon="history" /> Mi Historial de Visitas
+        <span class="icon-text" >[HISTORIAL]</span> Mi Historial de Visitas
     </RadzenText>
 
     <RadzenText TextStyle="TextStyle.H6" class="rz-color-secondary rz-mb-4">
@@ -31,28 +31,28 @@ else
     <RadzenRow Gap="1rem" class="rz-mb-4">
         <RadzenColumn Size="6" SizeMD="3">
             <RadzenCard class="rz-shadow-3 stat-card">
-                <RadzenIcon Icon="local_parking" Style="font-size: 2.5rem; color: var(--rz-primary);" />
+                <span class="icon-text" Style="font-size: 2.5rem; color: var(--rz-primary);" >[CAJON]</span>
                 <RadzenText TextStyle="TextStyle.H4">@totalVisitas</RadzenText>
                 <RadzenText TextStyle="TextStyle.Caption">Visitas Totales</RadzenText>
             </RadzenCard>
         </RadzenColumn>
         <RadzenColumn Size="6" SizeMD="3">
             <RadzenCard class="rz-shadow-3 stat-card">
-                <RadzenIcon Icon="timer" Style="font-size: 2.5rem; color: var(--rz-info);" />
+                <span class="icon-text" Style="font-size: 2.5rem; color: var(--rz-info);" >[TIEMPO]</span>
                 <RadzenText TextStyle="TextStyle.H4">@totalMinutos min</RadzenText>
                 <RadzenText TextStyle="TextStyle.Caption">Tiempo Total</RadzenText>
             </RadzenCard>
         </RadzenColumn>
         <RadzenColumn Size="6" SizeMD="3">
             <RadzenCard class="rz-shadow-3 stat-card">
-                <RadzenIcon Icon="payments" Style="font-size: 2.5rem; color: var(--rz-success);" />
+                <span class="icon-text" Style="font-size: 2.5rem; color: var(--rz-success);" >[PAGO]</span>
                 <RadzenText TextStyle="TextStyle.H4">S/ @totalGastado.ToString("N2")</RadzenText>
                 <RadzenText TextStyle="TextStyle.Caption">Total Gastado</RadzenText>
             </RadzenCard>
         </RadzenColumn>
         <RadzenColumn Size="6" SizeMD="3">
             <RadzenCard class="rz-shadow-3 stat-card">
-                <RadzenIcon Icon="star" Style="font-size: 2.5rem; color: var(--rz-warning);" />
+                <span class="icon-text" Style="font-size: 2.5rem; color: var(--rz-warning);" >[DESTACADO]</span>
                 <RadzenText TextStyle="TextStyle.H4">Cajón @cajonFavorito</RadzenText>
                 <RadzenText TextStyle="TextStyle.Caption">Cajón Favorito</RadzenText>
             </RadzenCard>
@@ -62,7 +62,7 @@ else
     <!-- Historial detallado -->
     <RadzenCard class="rz-shadow-3">
         <RadzenText TextStyle="TextStyle.H5" class="rz-mb-4">
-            <RadzenIcon Icon="list" /> Detalle de Visitas
+            <span class="icon-text" >[LISTA]</span> Detalle de Visitas
         </RadzenText>
 
         @if (historial.Any())
@@ -84,10 +84,10 @@ else
                     <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Title="Horario" Width="150px">
                         <Template Context="sesion">
                             <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem" AlignItems="AlignItems.Center">
-                                <RadzenIcon Icon="login" Style="color: var(--rz-success);" />
+                                <span class="icon-text" Style="color: var(--rz-success);" >[ENTRADA]</span>
                                 <span>@sesion.HoraEntrada.ToString("HH:mm")</span>
                                 <span>→</span>
-                                <RadzenIcon Icon="logout" Style="color: var(--rz-danger);" />
+                                <span class="icon-text" Style="color: var(--rz-danger);" >[SALIDA]</span>
                                 <span>@(sesion.HoraSalida?.ToString("HH:mm") ?? "--:--")</span>
                             </RadzenStack>
                         </Template>
@@ -109,13 +109,13 @@ else
                             @switch (sesion.Estado)
                             {
                                 case EstadoSesion.Activa:
-                                    <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="🚗 En curso" />
+                                    <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="VEHICULO En curso" />
                                     break;
                                 case EstadoSesion.Finalizada:
-                                    <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="✓ Finalizada" />
+                                    <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="OK Finalizada" />
                                     break;
                                 case EstadoSesion.Cancelada:
-                                    <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="✗ Cancelada" />
+                                    <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="NO Cancelada" />
                                     break;
                             }
                         </Template>
@@ -126,7 +126,7 @@ else
         else
         {
             <RadzenAlert AlertStyle="AlertStyle.Info">
-                <RadzenIcon Icon="info" /> No tienes historial de visitas aún. ¡Realiza tu primera visita!
+                <span class="icon-text" >[INFO]</span> No tienes historial de visitas aún. ¡Realiza tu primera visita!
             </RadzenAlert>
         }
     </RadzenCard>
@@ -136,7 +136,7 @@ else
         <!-- Gráfico de visitas -->
         <RadzenCard class="rz-shadow-3 rz-mt-4">
             <RadzenText TextStyle="TextStyle.H5" class="rz-mb-4">
-                <RadzenIcon Icon="show_chart" /> Visitas por Mes
+                <span class="icon-text" >[GRAFICA]</span> Visitas por Mes
             </RadzenText>
             <RadzenChart>
                 <RadzenLineSeries Data="@visitasPorMes" CategoryProperty="Mes" ValueProperty="Cantidad" Title="Visitas" Smooth="true" />
@@ -219,3 +219,5 @@ else
         public int Cantidad { get; set; }
     }
 }
+
+

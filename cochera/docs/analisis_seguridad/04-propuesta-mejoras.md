@@ -1,375 +1,596 @@
 # 04 — Propuesta de Mejoras de Seguridad
 
-## 4.1 Resumen
+## 4.1 Criterios de Priorización
 
-Se definieron **18 mejoras de seguridad** priorizadas en 4 niveles (P0 a P3). Las mejoras P0 abordan las vulnerabilidades más críticas del sistema.
+Las mejoras se priorizan según impacto y esfuerzo:
 
-> **Actualización Marzo 2026:** Se implementaron **4 mejoras P0** relacionadas con autenticación, autorización y gestión de sesiones. **14 mejoras permanecen pendientes**.
-
-### Estado Global
-
-| Prioridad | Total | Implementadas | Pendientes |
-|-----------|-------|--------------|------------|
-| P0 — Crítica | 4 | 4 ✅ | 0 |
-| P1 — Alta | 6 | 0 | 6 |
-| P2 — Media | 5 | 0 | 5 |
-| P3 — Baja | 3 | 0 | 3 |
-| **Total** | **18** | **4** | **14** |
+| Prioridad | Descripción | SLA |
+|-----------|------------|-----|
+| **P0 — Urgente** | Vulnerabilidades críticas que deben resolverse inmediatamente | 1-3 días |
+| **P1 — Alta** | Vulnerabilidades altas que requieren atención en el sprint actual | 1-2 semanas |
+| **P2 — Media** | Vulnerabilidades medias para planificar en el próximo sprint | 2-4 semanas |
+| **P3 — Baja** | Mejoras de defensa en profundidad y buenas prácticas | 1-2 meses |
 
 ---
 
-## 4.2 Mejoras P0 — Prioridad Crítica (Implementadas ✅)
-
-### M-01: Implementar Autenticación Real con ASP.NET Core Identity ✅
-
-| Campo | Valor |
-|-------|-------|
-| **Vulnerabilidades abordadas** | V-001, V-009, V-014, V-018 |
-| **Esfuerzo** | ~16 horas |
-| **Estado** | ✅ **IMPLEMENTADA** — Marzo 2026 |
-
-**Implementación realizada:**
-
-1. **ASP.NET Core Identity** con `IdentityUser` e `IdentityRole`
-2. **Policy de contraseñas:** RequireDigit, RequireLowercase, RequireUppercase, RequiredLength=8
-3. **CocheraDbContext** heredando de `IdentityDbContext<IdentityUser>`
-4. **Seed data** con `PasswordHasher<IdentityUser>` (PBKDF2-HMAC-SHA256)
-5. **Roles:** Admin y User con asignación en seed data
-6. **Cookie `Cochera.Auth`:** HttpOnly, SlidingExpiration, 8h expiry
-
-**Código clave implementado:**
-```csharp
-// Program.cs
-builder.Services.AddIdentity<IdentityUser, IdentityRole>(options => {
-    options.Password.RequireDigit = true;
-    options.Password.RequireLowercase = true;
-    options.Password.RequireUppercase = true;
-    options.Password.RequiredLength = 8;
-})
-.AddEntityFrameworkStores<CocheraDbContext>()
-.AddDefaultTokenProviders();
-
-builder.Services.ConfigureApplicationCookie(options => {
-    options.Cookie.Name = "Cochera.Auth";
-    options.LoginPath = "/login";
-    options.AccessDeniedPath = "/access-denied";
-    options.SlidingExpiration = true;
-    options.ExpireTimeSpan = TimeSpan.FromHours(8);
-});
-```
+## 4.2 Propuestas de Mejora
 
 ---
 
-### M-02: Proteger SignalR Hub con [Authorize] ✅
+### M-01 — Externalizar Credenciales del Firmware ESP32
 
 | Campo | Valor |
 |-------|-------|
-| **Vulnerabilidades abordadas** | V-002 |
-| **Estado** | ✅ **IMPLEMENTADA** (parcial — métodos protegidos, clase no) |
+| **Prioridad** | P0 — Urgente |
+| **Vulnerabilidades** | V-001 |
+| **Esfuerzo** | ~4-8 horas |
+| **Impacto** | CVSS 9.1 → 2.0 |
 
-**Implementación realizada:**
-```csharp
-[Authorize(Roles = "Admin")]
-public async Task UnirseComoAdmin() { ... }
+**Propuesta:**
+Almacenar credenciales WiFi y MQTT en NVS (Non-Volatile Storage) del ESP32 con opción de configuración por portal cautivo (WiFiManager).
 
-[Authorize]
-public async Task UnirseComoUsuario(int usuarioId)
-{
-    // Valida que el usuario autenticado sea el dueño
-    var codigo = Context.User?.Identity?.Name;
-    var usuario = await _usuarioService.GetByCodigoAsync(codigo);
-    if (Context.User?.IsInRole("Admin") == true || usuario.Id == usuarioId) { ... }
-    else throw new HubException("Acceso denegado");
+**Implementación:**
+```cpp
+#include <Preferences.h>
+#include <WiFiManager.h>
+
+Preferences preferences;
+
+void setup() {
+    // WiFiManager configura WiFi por portal cautivo
+    WiFiManager wm;
+    wm.autoConnect("Cochera-Setup");
+    
+    // Credenciales MQTT desde NVS
+    preferences.begin("mqtt", true);
+    String mqtt_server = preferences.getString("server", "");
+    String mqtt_user = preferences.getString("user", "");
+    String mqtt_pass = preferences.getString("pass", "");
+    preferences.end();
 }
 ```
 
-**⚠️ Pendiente:** Agregar `[Authorize]` a nivel de clase.
+**Adicionalmente:**
+- Habilitar Flash Encryption del ESP32 para proteger NVS
+- Habilitar Secure Boot para evitar reemplazo del firmware
 
 ---
 
-### M-03: Página de Login con Form POST ✅
+### M-02 — Crear Usuario de BD con Privilegios Mínimos
 
 | Campo | Valor |
 |-------|-------|
-| **Vulnerabilidades abordadas** | V-001, V-008 |
-| **Estado** | ✅ **IMPLEMENTADA** |
-
-Se creó `Login.razor` con un formulario HTML puro (`<form method="post" action="/auth/login">`) que envía credenciales fuera del circuito interactivo de Blazor, evitando la excepción de cookies.
-
-```razor
-<form method="post" action="/auth/login">
-    <input name="username" class="form-control" required />
-    <input name="password" type="password" class="form-control" required />
-    <input type="hidden" name="returnUrl" value="@returnUrl" />
-    <button type="submit" class="btn btn-primary">Ingresar</button>
-</form>
-```
-
----
-
-### M-04: Protección de Rutas por Roles ✅
-
-| Campo | Valor |
-|-------|-------|
-| **Vulnerabilidades abordadas** | V-001, V-008 |
-| **Estado** | ✅ **IMPLEMENTADA** |
-
-```razor
-<!-- Routes.razor con AuthorizeRouteView -->
-<AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
-    <NotAuthorized><RedirectToLogin /></NotAuthorized>
-</AuthorizeRouteView>
-
-<!-- App.razor con CascadingAuthenticationState -->
-<CascadingAuthenticationState>
-    <Routes @rendermode="InteractiveServer" />
-</CascadingAuthenticationState>
-```
-
----
-
-## 4.3 Mejoras P1 — Prioridad Alta (Pendientes)
-
-### M-05: Cifrado TLS para MQTT ❌
-
-| Campo | Valor |
-|-------|-------|
-| **Vulnerabilidades abordadas** | V-005, V-015 |
-| **Esfuerzo estimado** | ~8 horas |
-| **Estado** | ❌ **PENDIENTE** |
+| **Prioridad** | P0 — Urgente |
+| **Vulnerabilidades** | V-002 |
+| **Esfuerzo** | ~1-2 horas |
+| **Impacto** | CVSS 8.6 → 2.0 |
 
 **Propuesta:**
+Crear un usuario PostgreSQL dedicado con permisos CRUD únicamente sobre la base de datos `Cochera`.
+
+**Implementación:**
+```sql
+-- Crear usuario dedicado
+CREATE USER cochera_app WITH PASSWORD 'C0ch3ra_S3cur3!2024';
+
+-- Otorgar permisos mínimos
+GRANT CONNECT ON DATABASE "Cochera" TO cochera_app;
+GRANT USAGE ON SCHEMA public TO cochera_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO cochera_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO cochera_app;
+
+-- Denegar DDL
+REVOKE CREATE ON SCHEMA public FROM cochera_app;
+```
+
+**Actualizar appsettings.json:**
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=localhost;Port=5432;Database=Cochera;Username=cochera_app;Password=C0ch3ra_S3cur3!2024;"
+  }
+}
+```
+
+---
+
+### M-03 — Validar Esquema de Mensajes MQTT
+
+| Campo | Valor |
+|-------|-------|
+| **Prioridad** | P0 — Urgente |
+| **Vulnerabilidades** | V-003 |
+| **Esfuerzo** | ~2-4 horas |
+| **Impacto** | CVSS 8.1 → 3.0 |
+
+**Propuesta:**
+Agregar validación de esquema, rango de valores y sanitización antes de procesar mensajes MQTT.
+
+**Implementación:**
 ```csharp
-// MqttConsumerService.cs — Agregar TLS
+// MqttMessageValidator.cs (nuevo)
+public static class MqttMessageValidator
+{
+    public static bool IsValid(MensajeSensorMqtt? mensaje, out string error)
+    {
+        error = string.Empty;
+        
+        if (mensaje == null) { error = "Mensaje nulo"; return false; }
+        
+        if (string.IsNullOrWhiteSpace(mensaje.Tipo))
+        { error = "Tipo requerido"; return false; }
+        
+        var tiposValidos = new[] { "entrada", "cajon1", "cajon2", "estado" };
+        if (!tiposValidos.Contains(mensaje.Tipo.ToLower()))
+        { error = $"Tipo inválido: {mensaje.Tipo}"; return false; }
+        
+        if (mensaje.Distancia < 0 || mensaje.Distancia > 400)
+        { error = $"Distancia fuera de rango: {mensaje.Distancia}"; return false; }
+        
+        if (mensaje.Timestamp > DateTime.UtcNow.AddMinutes(5))
+        { error = "Timestamp en el futuro"; return false; }
+        
+        return true;
+    }
+}
+
+// En MqttConsumerService.cs
+var mensaje = JsonSerializer.Deserialize<MensajeSensorMqtt>(payload, jsonOpts);
+
+if (!MqttMessageValidator.IsValid(mensaje, out var error))
+{
+    _logger.LogWarning("[RIESGO]️ Mensaje MQTT rechazado: {Error}. Payload: {Payload}", error, payload);
+    return;
+}
+```
+
+---
+
+### M-04 — Agregar HMAC a Mensajes MQTT
+
+| Campo | Valor |
+|-------|-------|
+| **Prioridad** | P1 — Alta |
+| **Vulnerabilidades** | V-004 |
+| **Esfuerzo** | ~4-8 horas |
+| **Impacto** | CVSS 8.1 → 2.0 |
+
+**Propuesta:**
+Incluir un HMAC-SHA256 en cada mensaje MQTT para verificar autenticidad e integridad. Clave compartida almacenada en NVS del ESP32.
+
+**ESP32 (envío):**
+```cpp
+#include <mbedtls/md.h>
+
+String computeHMAC(const char* payload, const char* key) {
+    byte hmacResult[32];
+    mbedtls_md_context_t ctx;
+    mbedtls_md_init(&ctx);
+    mbedtls_md_setup(&ctx, mbedtls_md_info_from_type(MBEDTLS_MD_SHA256), 1);
+    mbedtls_md_hmac_starts(&ctx, (const unsigned char*)key, strlen(key));
+    mbedtls_md_hmac_update(&ctx, (const unsigned char*)payload, strlen(payload));
+    mbedtls_md_hmac_finish(&ctx, hmacResult);
+    mbedtls_md_free(&ctx);
+    // Convert to hex...
+    return hexString;
+}
+```
+
+**Worker (verificación):**
+```csharp
+using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(sharedKey));
+var computed = Convert.ToHexString(hmac.ComputeHash(Encoding.UTF8.GetBytes(payload)));
+if (!computed.Equals(receivedHmac, StringComparison.OrdinalIgnoreCase))
+{
+    _logger.LogWarning("[RIESGO]️ HMAC inválido. Mensaje rechazado.");
+    return;
+}
+```
+
+---
+
+### M-05 — Habilitar TLS en MQTT
+
+| Campo | Valor |
+|-------|-------|
+| **Prioridad** | P1 — Alta |
+| **Vulnerabilidades** | V-005 |
+| **Esfuerzo** | ~4-8 horas |
+| **Impacto** | CVSS 7.4 → 2.0 |
+
+**Propuesta:**
+Configurar RabbitMQ con TLS en puerto 8883. Actualizar clientes (Worker y ESP32) para usar conexión cifrada.
+
+**Worker (.NET):**
+```csharp
 var options = new MqttClientOptionsBuilder()
-    .WithTcpServer(_settings.Server, 8883)  // Puerto TLS
-    .WithTlsOptions(o => {
-        o.UseTls = true;
-        o.CertificateValidationHandler = ctx => true; // o validar CA
-    })
+    .WithTcpServer(_settings.Server, 8883)
+    .WithTlsOptions(o => o
+        .UseTls(true)
+        .WithCertificateValidationHandler(_ => true)) // En dev; validar cert en prod
     .WithCredentials(_settings.Username, _settings.Password)
     .Build();
 ```
 
+**ESP32:**
+```cpp
+#include <WiFiClientSecure.h>
+WiFiClientSecure espSecureClient;
+espSecureClient.setCACert(ca_cert);  // Certificado CA del broker
+PubSubClient client(espSecureClient);
+client.setServer(mqtt_server, 8883);
+```
+
 ---
 
-### M-06: Gestión Segura de Credenciales ❌
+### M-06 — Agregar Verificación de Ownership en Servicios
 
 | Campo | Valor |
 |-------|-------|
-| **Vulnerabilidades abordadas** | V-004, V-011 |
-| **Esfuerzo estimado** | ~4 horas |
-| **Estado** | ❌ **PENDIENTE** |
+| **Prioridad** | P1 — Alta |
+| **Vulnerabilidades** | V-006 |
+| **Esfuerzo** | ~4-6 horas |
+| **Impacto** | CVSS 7.5 → 2.0 |
 
 **Propuesta:**
-- Usar `dotnet user-secrets` en desarrollo
-- Variables de entorno o Azure Key Vault en producción
-- Crear usuario PostgreSQL dedicado con permisos mínimos (no `postgres`)
+Agregar parámetro `currentUserId` a los métodos de servicio y verificar que el usuario solo pueda acceder a sus propios recursos (excepto Admin).
+
+**Implementación:**
+```csharp
+public async Task<SesionEstacionamientoDto?> GetByIdAsync(
+    int id, int currentUserId, bool isAdmin, CancellationToken ct = default)
+{
+    var sesion = await _unitOfWork.Sesiones.GetWithPagoAsync(id, ct);
+    if (sesion == null) return null;
+    
+    if (!isAdmin && sesion.UsuarioId != currentUserId)
+        throw new UnauthorizedAccessException("No tiene acceso a esta sesión");
+    
+    return MapToDto(sesion);
+}
+```
+
+---
+
+### M-07 — Implementar Logging Estructurado de Seguridad
+
+| Campo | Valor |
+|-------|-------|
+| **Prioridad** | P1 — Alta |
+| **Vulnerabilidades** | V-007 |
+| **Esfuerzo** | ~4-8 horas |
+| **Impacto** | CVSS 7.0 → 2.0 |
+
+**Propuesta:**
+Instalar Serilog con sink a archivo/Seq y crear categoría de logs de seguridad.
+
+**Implementación:**
+```csharp
+// Program.cs
+builder.Host.UseSerilog((context, config) => config
+    .ReadFrom.Configuration(context.Configuration)
+    .Enrich.FromLogContext()
+    .WriteTo.Console()
+    .WriteTo.File("logs/security-.log", 
+        rollingInterval: RollingInterval.Day,
+        restrictedToMinimumLevel: LogEventLevel.Warning));
+
+// SecurityLogger (nuevo servicio)
+public class SecurityLogger
+{
+    private readonly ILogger<SecurityLogger> _logger;
+    
+    public void LogLoginFailed(string username, string ip)
+        => _logger.LogWarning("SECURITY: Login failed for {Username} from {IP}", username, ip);
+    
+    public void LogAccessDenied(string username, string resource)
+        => _logger.LogWarning("SECURITY: Access denied for {Username} to {Resource}", username, resource);
+    
+    public void LogSuspiciousActivity(string type, string details)
+        => _logger.LogError("SECURITY: Suspicious activity [{Type}]: {Details}", type, details);
+}
+```
+
+---
+
+### M-08 — Habilitar Secure Boot + Flash Encryption en ESP32
+
+| Campo | Valor |
+|-------|-------|
+| **Prioridad** | P2 — Media |
+| **Vulnerabilidades** | V-008 |
+| **Esfuerzo** | ~4-8 horas |
+| **Impacto** | CVSS 6.5 → 2.0 |
+
+**Propuesta:**
+Habilitar Secure Boot V2 y Flash Encryption mediante `menuconfig` de ESP-IDF.
 
 ```bash
-# Ejemplo: User Secrets
-dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=...;Username=cochera_app;..."
+# En ESP-IDF menuconfig
+idf.py menuconfig
+# Security features → Enable hardware Secure Boot V2
+# Security features → Enable flash encryption on boot
+# NOTA: ¡Proceso irreversible! Probar primero en dispositivo de prueba.
 ```
 
 ---
 
-### M-07: Validación y Firma de Mensajes MQTT ❌
+### M-09 — Agregar `[Authorize]` a Nivel de Clase en CocheraHub
 
 | Campo | Valor |
 |-------|-------|
-| **Vulnerabilidades abordadas** | V-007, V-015 |
-| **Esfuerzo estimado** | ~12 horas |
-| **Estado** | ❌ **PENDIENTE** |
+| **Prioridad** | P2 — Media |
+| **Vulnerabilidades** | V-009 |
+| **Esfuerzo** | ~30 minutos |
+| **Impacto** | CVSS 5.5 → 0 |
 
 **Propuesta:**
+Agregar `[Authorize]` a nivel de clase y ajustar `OnConnectedAsync` para rechazar conexiones no autenticadas.
+
+**Implementación:**
 ```csharp
-// Validar esquema con FluentValidation o System.ComponentModel.DataAnnotations
-public class MensajeSensorValidator : AbstractValidator<MensajeSensorMqtt>
+[Authorize]  // ← Agregar esto
+public class CocheraHub : Hub
 {
-    public MensajeSensorValidator()
-    {
-        RuleFor(x => x.Evento).NotEmpty().MaximumLength(50);
-        RuleFor(x => x.Detalle).MaximumLength(200);
-        RuleFor(x => x.Libres).InclusiveBetween(0, 10);
-    }
+    // Todos los métodos ahora requieren autenticación
+    // El Worker invoca SignalR vía HTTP, no directamente como cliente del Hub
 }
-
-// Agregar HMAC-SHA256 en ESP32 y verificar en Worker
 ```
+
+**Verificar:** Que `SignalRNotificationService` (Worker) use un token o mecanismo de autenticación al conectarse al HubUrl.
 
 ---
 
-### M-08: Agregar [Authorize] a nivel de clase en Hub ❌
+### M-10 — Agregar Headers de Seguridad HTTP
 
 | Campo | Valor |
 |-------|-------|
-| **Vulnerabilidades abordadas** | V-002 |
-| **Esfuerzo estimado** | ~30 minutos |
-| **Estado** | ❌ **PENDIENTE** |
+| **Prioridad** | P2 — Media |
+| **Vulnerabilidades** | V-010 |
+| **Esfuerzo** | ~1 hora |
+| **Impacto** | CVSS 5.3 → 0 |
 
+**Implementación:**
 ```csharp
-[Authorize]  // ← Una línea que protege todo el Hub
-public class CocheraHub : Hub { ... }
-```
-
----
-
-### M-09: Rate Limiting en Login ❌
-
-| Campo | Valor |
-|-------|-------|
-| **Vulnerabilidades abordadas** | V-008 (parcial) |
-| **Esfuerzo estimado** | ~2 horas |
-| **Estado** | ❌ **PENDIENTE** |
-
-```csharp
-// Program.cs — .NET 8 built-in rate limiting
-builder.Services.AddRateLimiter(options => {
-    options.AddFixedWindowLimiter("login", opt => {
-        opt.PermitLimit = 5;
-        opt.Window = TimeSpan.FromMinutes(1);
-    });
-});
-
-app.MapPost("/auth/login", ...).RequireRateLimiting("login");
-```
-
----
-
-### M-10: Habilitar LockoutEnabled en Usuarios Seed ❌
-
-| Campo | Valor |
-|-------|-------|
-| **Vulnerabilidades abordadas** | V-008 |
-| **Esfuerzo estimado** | ~15 minutos |
-| **Estado** | ❌ **PENDIENTE** |
-
-```csharp
-var adminIdentityUser = new IdentityUser {
-    LockoutEnabled = true  // ← Cambiar de false a true
-};
-```
-
----
-
-## 4.4 Mejoras P2 — Prioridad Media (Pendientes)
-
-### M-11: Headers de Seguridad HTTP ❌
-
-| Campo | Valor |
-|-------|-------|
-| **Vulnerabilidades abordadas** | V-012 |
-| **Esfuerzo estimado** | ~2 horas |
-| **Estado** | ❌ **PENDIENTE** |
-
-```csharp
+// Program.cs — Agregar middleware de headers
 app.Use(async (context, next) =>
 {
-    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
-    context.Response.Headers["X-Frame-Options"] = "DENY";
-    context.Response.Headers["X-XSS-Protection"] = "1; mode=block";
-    context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
-    context.Response.Headers["Permissions-Policy"] = "camera=(), microphone=()";
+    context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
+    context.Response.Headers.Append("X-Frame-Options", "DENY");
+    context.Response.Headers.Append("X-XSS-Protection", "1; mode=block");
+    context.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
+    context.Response.Headers.Append("Permissions-Policy", 
+        "camera=(), microphone=(), geolocation=()");
+    context.Response.Headers.Append("Content-Security-Policy", 
+        "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+        "style-src 'self' 'unsafe-inline'; img-src 'self' data:; " +
+        "connect-src 'self' ws: wss:;");
     await next();
 });
 ```
 
 ---
 
-### M-12: Ownership Validation en Services ❌
+### M-11 — Integrar Análisis SCA de Dependencias
 
 | Campo | Valor |
 |-------|-------|
-| **Vulnerabilidades abordadas** | V-003 |
-| **Esfuerzo estimado** | ~8 horas |
-| **Estado** | ❌ **PENDIENTE** |
+| **Prioridad** | P2 — Media |
+| **Vulnerabilidades** | V-011 |
+| **Esfuerzo** | ~2-4 horas |
+| **Impacto** | CVSS 5.0 → 1.0 |
 
----
+**Propuesta:**
+Integrar `dotnet list package --vulnerable` y/o Snyk en pipeline CI.
 
-### M-13: Provisioning WiFi/MQTT para ESP32 ❌
-
-| Campo | Valor |
-|-------|-------|
-| **Vulnerabilidades abordadas** | V-004 |
-| **Esfuerzo estimado** | ~16 horas |
-| **Estado** | ❌ **PENDIENTE** |
-
----
-
-### M-14: Dependabot / Snyk para CVEs ❌
-
-| Campo | Valor |
-|-------|-------|
-| **Vulnerabilidades abordadas** | V-013 |
-| **Esfuerzo estimado** | ~2 horas |
-| **Estado** | ❌ **PENDIENTE** |
-
----
-
-### M-15: Configurar AllowedHosts ❌
-
-| Campo | Valor |
-|-------|-------|
-| **Vulnerabilidades abordadas** | V-010 |
-| **Esfuerzo estimado** | ~15 minutos |
-| **Estado** | ❌ **PENDIENTE** |
-
-```json
-"AllowedHosts": "cochera.example.com;localhost"
+```yaml
+# GitHub Actions
+- run: dotnet list package --vulnerable --include-transitive
+  continue-on-error: false
 ```
 
 ---
 
-## 4.5 Mejoras P3 — Prioridad Baja (Pendientes)
+### M-12 — Habilitar LockoutEnabled + Rate Limiting
 
-### M-16: Cifrado de Datos en Reposo ❌
+| Campo | Valor |
+|-------|-------|
+| **Prioridad** | P2 — Media |
+| **Vulnerabilidades** | V-012 |
+| **Esfuerzo** | ~2-4 horas |
+| **Impacto** | CVSS 5.0 → 1.0 |
 
-| **Vulnerabilidades abordadas** | V-006 |
-| **Estado** | ❌ **PENDIENTE** |
+**Propuesta:**
+1. Cambiar `LockoutEnabled = true` en seed de usuarios
+2. Agregar ASP.NET Core Rate Limiting al endpoint de login
 
-### M-17: Secure Boot ESP32 ❌
-
-| **Vulnerabilidades abordadas** | V-016 |
-| **Estado** | ❌ **PENDIENTE** |
-
-### M-18: Audit Logging de Seguridad ❌
-
-| **Vulnerabilidades abordadas** | V-017 |
-| **Estado** | ❌ **PENDIENTE** |
-
----
-
-## 4.6 Roadmap de Implementación
-
+**Seed corregida:**
+```csharp
+new IdentityUser
+{
+    UserName = "admin",
+    LockoutEnabled = true,  // [OK] Bloqueo habilitado
+    // ...
+}
 ```
-Fase 1 (COMPLETADA ✅):
-├── M-01 ASP.NET Core Identity          ✅
-├── M-02 [Authorize] en Hub             ✅ (parcial)
-├── M-03 Login con form POST            ✅
-└── M-04 Protección de rutas            ✅
 
-Fase 2 (SIGUIENTE — Alta prioridad):
-├── M-08 [Authorize] clase Hub          (~30 min)
-├── M-09 Rate limiting login            (~2h)
-├── M-10 LockoutEnabled = true          (~15 min)
-└── M-06 Gestión segura credenciales    (~4h)
+**Rate Limiting:**
+```csharp
+// Program.cs
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddFixedWindowLimiter("login", limiter =>
+    {
+        limiter.PermitLimit = 5;
+        limiter.Window = TimeSpan.FromMinutes(1);
+        limiter.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+    });
+});
 
-Fase 3 (Infraestructura):
-├── M-05 MQTT TLS                       (~8h)
-├── M-07 Validación mensajes MQTT       (~12h)
-├── M-11 Security headers               (~2h)
-└── M-15 AllowedHosts                   (~15 min)
+app.UseRateLimiter();
 
-Fase 4 (Mejora continua):
-├── M-12 Ownership validation           (~8h)
-├── M-14 Dependabot/Snyk                (~2h)
-├── M-18 Audit logging                  (~8h)
-├── M-13 Provisioning ESP32             (~16h)
-├── M-16 Cifrado en reposo              (~8h)
-└── M-17 Secure Boot                    (~12h)
+app.MapPost("/auth/login", async (...) => { ... })
+    .RequireRateLimiting("login")
+    .DisableAntiforgery();
 ```
 
 ---
 
-*Anterior: [03 — Análisis de Código Inseguro](03-analisis-codigo-inseguro.md)*
-*Siguiente: [05 — Pruebas de Seguridad (SAST/DAST)](05-pruebas-sast-dast.md)*
+### M-13 — Restaurar AntiForgery en Login
+
+| Campo | Valor |
+|-------|-------|
+| **Prioridad** | P2 — Media |
+| **Vulnerabilidades** | V-013 |
+| **Esfuerzo** | ~2-4 horas |
+| **Impacto** | CVSS 4.3 → 0 |
+
+**Propuesta:**
+Generar y validar un token AntiForgery en el formulario de login. Requiere inyectar `IAntiforgery` en la página estática o usar un campo hidden con el token.
+
+```csharp
+// En Login.razor (cambiar a static SSR con token)
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+@{
+    var token = Antiforgery.GetAndStoreTokens(HttpContext);
+}
+
+<form method="post" action="/auth/login">
+    <input type="hidden" name="__RequestVerificationToken" value="@token.RequestToken" />
+    <!-- resto del formulario -->
+</form>
+
+// En Program.cs: quitar .DisableAntiforgery()
+app.MapPost("/auth/login", async (...) => { ... });
+```
+
+---
+
+### M-14 — Implementar Backoff Exponencial en Reconexión MQTT
+
+| Campo | Valor |
+|-------|-------|
+| **Prioridad** | P3 — Baja |
+| **Vulnerabilidades** | V-014 |
+| **Esfuerzo** | ~1 hora |
+| **Impacto** | CVSS 3.5 → 0 |
+
+**Implementación:**
+```csharp
+private int _reconnectAttempt = 0;
+
+_mqttClient.DisconnectedAsync += async e =>
+{
+    var delay = Math.Min(60, Math.Pow(2, _reconnectAttempt)) 
+                + Random.Shared.Next(0, 1000) / 1000.0;
+    _logger.LogWarning("Reconexión MQTT intento {Attempt}, delay {Delay}s", 
+        _reconnectAttempt, delay);
+    await Task.Delay(TimeSpan.FromSeconds(delay), cancellationToken);
+    
+    try
+    {
+        await _mqttClient.ConnectAsync(options, cancellationToken);
+        _reconnectAttempt = 0; // Reset en conexión exitosa
+    }
+    catch
+    {
+        _reconnectAttempt++;
+    }
+};
+```
+
+---
+
+### M-15 — Mover Credenciales a User Secrets / Variables de Entorno
+
+| Campo | Valor |
+|-------|-------|
+| **Prioridad** | P1 — Alta |
+| **Vulnerabilidades** | V-002 |
+| **Esfuerzo** | ~1-2 horas |
+| **Impacto** | CVSS 8.6 → 3.0 |
+
+**Propuesta:**
+Usar `dotnet user-secrets` en desarrollo y variables de entorno en producción.
+
+```bash
+# Desarrollo
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=localhost;Port=5432;Database=Cochera;Username=cochera_app;Password=C0ch3ra_S3cur3!2024;"
+dotnet user-secrets set "Mqtt:Password" "nueva_password_segura"
+```
+
+```csharp
+// Program.cs — Ya soportado por default
+builder.Configuration.AddUserSecrets<Program>();
+// En producción: variable de entorno
+// ConnectionStrings__DefaultConnection=...
+```
+
+---
+
+### M-16 — Remover Credenciales de Prueba de la Página de Login
+
+| Campo | Valor |
+|-------|-------|
+| **Prioridad** | P2 — Media |
+| **Vulnerabilidades** | V-012 |
+| **Esfuerzo** | ~30 minutos |
+| **Impacto** | Reduce exposición de información |
+
+**Propuesta:**
+Mostrar credenciales de prueba solo en entorno de desarrollo.
+
+```razor
+@* Login.razor *@
+@inject IWebHostEnvironment Env
+
+@if (Env.IsDevelopment())
+{
+    <div class="alert alert-info">
+        <strong>Credenciales de prueba:</strong>
+        <p>Admin: admin / Admin12345</p>
+        <p>Usuario: usuario_1 / Usuario12345</p>
+    </div>
+}
+```
+
+---
+
+## 4.3 Resumen de Propuestas por Prioridad
+
+| Prioridad | Mejoras | Vulnerabilidades |
+|-----------|---------|-----------------|
+| **P0** (1-3 días) | M-01, M-02, M-03 | V-001, V-002, V-003 |
+| **P1** (1-2 semanas) | M-04, M-05, M-06, M-07, M-15 | V-004, V-005, V-006, V-007 |
+| **P2** (2-4 semanas) | M-08, M-09, M-10, M-11, M-12, M-13, M-16 | V-008, V-009, V-010, V-011, V-012, V-013 |
+| **P3** (1-2 meses) | M-14 | V-014 |
+
+## 4.4 Estimación de Esfuerzo Total
+
+| Prioridad | Horas Estimadas |
+|-----------|----------------|
+| P0 | 7-14h |
+| P1 | 17-32h |
+| P2 | 12-22h |
+| P3 | 1h |
+| **Total** | **37-69h** |
+
+---
+
+## 4.5 Roadmap Propuesto
+
+```plantuml
+@startuml
+title Roadmap Propuesto de Remediación
+start
+:Semana 1-2 (P0)\nCredenciales firmware, BD, validación MQTT;
+:Semana 2-4 (P1)\nHMAC, TLS, ownership, logging, user-secrets;
+:Semana 4-8 (P2)\nSecure Boot, Hub auth, headers, SCA,\nrate limiting, CSRF;
+:Semana 8+ (P3)\nBackoff exponencial, mejoras continuas;
+stop
+@enduml
+```
+
+---
+
+

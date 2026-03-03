@@ -25,19 +25,19 @@
 else
 {
     <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="rz-mb-4">
-        <RadzenIcon Icon="local_parking" /> Sesiones de Estacionamiento
+        <span class="icon-text" >[CAJON]</span> Sesiones de Estacionamiento
     </RadzenText>
 
     <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" class="rz-mb-4">
-        <RadzenButton Icon="refresh" Text="Actualizar" Click="@LoadSesiones" />
-        <RadzenButton Icon="directions_car" Text="Gestión de Entrada/Salida" 
+        <RadzenButton Text="Actualizar" Click="@LoadSesiones" />
+        <RadzenButton Text="Gestión de Entrada/Salida" 
             ButtonStyle="ButtonStyle.Primary" Click="@(() => Navigation.NavigateTo("/admin/gestion-entrada"))" />
     </RadzenStack>
 
     <!-- Sesiones Activas -->
     <RadzenCard class="rz-shadow-3 rz-mb-4">
         <RadzenText TextStyle="TextStyle.H5" class="rz-mb-4">
-            <RadzenIcon Icon="play_circle" /> Sesiones Activas
+            <span class="icon-text" >[ACTIVA]</span> Sesiones Activas
             <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="@sesionesActivas.Count.ToString()" />
         </RadzenText>
         
@@ -67,7 +67,7 @@ else
                     </RadzenDataGridColumn>
                     <RadzenDataGridColumn TItem="SesionEstacionamientoDto" Title="Acciones" Width="150px">
                         <Template Context="sesion">
-                            <RadzenButton Icon="exit_to_app" Text="Salida" Size="ButtonSize.Small"
+                            <RadzenButton Text="Salida" Size="ButtonSize.Small"
                                 ButtonStyle="ButtonStyle.Warning" Click="@(() => SolicitarCierre(sesion))" />
                         </Template>
                     </RadzenDataGridColumn>
@@ -85,7 +85,7 @@ else
     <!-- Sesiones Pendientes de Pago -->
     <RadzenCard class="rz-shadow-3 rz-mb-4">
         <RadzenText TextStyle="TextStyle.H5" class="rz-mb-4">
-            <RadzenIcon Icon="payment" /> Pendientes de Pago
+            <span class="icon-text" >[PAGO]</span> Pendientes de Pago
             <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="@sesionesPendientes.Count.ToString()" />
         </RadzenText>
         
@@ -110,7 +110,7 @@ else
                         <Template Context="sesion">
                             @if (sesion.TienePago)
                             {
-                                <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="PAGADO ✓" />
+                                <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="PAGADO OK" />
                             }
                             else
                             {
@@ -122,7 +122,7 @@ else
                         <Template Context="sesion">
                             @if (sesion.TienePago)
                             {
-                                <RadzenButton Icon="check" Text="Cerrar" Size="ButtonSize.Small"
+                                <RadzenButton Text="Cerrar" Size="ButtonSize.Small"
                                     ButtonStyle="ButtonStyle.Success" Click="@(() => CerrarSesion(sesion))" />
                             }
                             else
@@ -267,7 +267,7 @@ else
             // Notificar via SignalR
             await SesionNotificationService.NotificarSesionCerradaAsync(sesionCerrada);
             
-            NotificationService.Notify(NotificationSeverity.Success, "✅ Sesión cerrada", 
+            NotificationService.Notify(NotificationSeverity.Success, "OK Sesión cerrada", 
                 $"Sesión de {sesion.UsuarioNombre} cerrada exitosamente. Cajón {sesion.CajonNumero} liberado.");
             
             StateHasChanged();
@@ -289,3 +289,5 @@ else
         }
     }
 }
+
+

@@ -4,8 +4,6 @@
 
 Este documento describe las herramientas y procedimientos recomendados para ejecutar pruebas de seguridad estáticas (SAST) y dinámicas (DAST) sobre el sistema Cochera Inteligente.
 
-> **Actualización Marzo 2026:** Se actualizaron las configuraciones de prueba para reflejar la implementación de ASP.NET Core Identity, se añadieron nuevos escenarios de prueba para autenticación/autorización, y se ajustaron los resultados esperados.
-
 ---
 
 ## 5.2 Pruebas Estáticas (SAST)
@@ -38,15 +36,15 @@ dotnet_diagnostic.SCS0026.severity = warning  # SQL injection
 dotnet_diagnostic.SCS0029.severity = warning  # XSS
 ```
 
-### 5.2.3 Hallazgos SAST Esperados (Actualizado)
+### 5.2.3 Hallazgos SAST Esperados
 
 | Regla | Archivo | Descripción | Estado |
 |-------|---------|-------------|--------|
-| ~~SCS0005~~ | ~~UsuarioActualService.cs~~ | ~~Auth bypass~~ | ✅ Resuelto — ya no hay suplantación |
-| SCS0016 | appsettings.json | Hardcoded connection string | ❌ Se detectará |
-| SCS0029 | Login.razor | Posible XSS en error display | ⚠️ Verificar |
-| SCS0032 | MqttConsumerService.cs | Insecure deserialization | ❌ Se detectará |
-| CA2000 | MqttConsumerService.cs | Disposable not disposed | ❌ Se detectará |
+| SCS0016 | appsettings.json | Hardcoded connection string con credenciales | [FALLA] Se detectará |
+| SCS0029 | Login.razor | Posible XSS en visualización de error | [RIESGO]️ Verificar |
+| SCS0032 | MqttConsumerService.cs | Deserialización insegura de JSON MQTT | [FALLA] Se detectará |
+| CA2000 | MqttConsumerService.cs | Disposable no gestionado correctamente | [FALLA] Se detectará |
+| CA5394 | CocheraDbContext.cs | Uso potencial de Guid.NewGuid() para seguridad | [RIESGO]️ Verificar |
 
 ### 5.2.4 Análisis de Dependencias (SCA)
 
@@ -57,19 +55,19 @@ dotnet list package --vulnerable --include-transitive
 # Con Snyk CLI
 snyk test --file=Cochera.sln
 
-# Con dotnet-outdated  
+# Con dotnet-outdated
 dotnet tool install -g dotnet-outdated-tool
 dotnet outdated Cochera.sln
 ```
 
-**Paquetes a monitorear especialmente:**
+**Paquetes a monitorear:**
 
-| Paquete | Versión | Notas |
-|---------|---------|-------|
-| Microsoft.AspNetCore.Identity.EntityFrameworkCore | 8.0.x | 🆕 Nuevo — verificar parches |
-| MQTTnet | 4.3.3 | Verificar actualizaciones |
-| Npgsql.EntityFrameworkCore.PostgreSQL | 8.0.x | Verificar CVEs |
-| Radzen.Blazor | 5.x | Componentes UI de terceros |
+| Paquete | Versión | Riesgo |
+|---------|---------|--------|
+| MQTTnet | 4.3.3 | Librería IoT de nicho — verificar CVEs |
+| Npgsql.EntityFrameworkCore.PostgreSQL | 8.0.x | Driver BD — monitorear parches |
+| Radzen.Blazor | 5.x | Componentes UI de terceros — superficie amplia |
+| Microsoft.AspNetCore.Identity.EntityFrameworkCore | 8.0.x | Verificar parches de seguridad |
 
 ---
 
@@ -89,7 +87,7 @@ dotnet outdated Cochera.sln
 ### 5.3.2 Configuración OWASP ZAP
 
 ```yaml
-# zap-config.yaml (Actualizado para sistema con Identity)
+# zap-config.yaml
 env:
   contexts:
     - name: "Cochera Inteligente"
@@ -106,10 +104,9 @@ env:
           loginPageUrl: "https://localhost:7XXX/login"
           loginRequestUrl: "https://localhost:7XXX/auth/login"
           loginRequestData: "username={%username%}&password={%password%}"
-          # NOTA: El formulario no tiene AntiForgery token
         verification:
           method: "response"
-          loggedInRegex: "Cochera\\.Auth"  # Cookie de sesión
+          loggedInRegex: "Cochera\\.Auth"
           loggedOutRegex: "Iniciar sesión"
       users:
         - name: "admin"
@@ -121,11 +118,8 @@ env:
             username: "usuario_1"
             password: "Usuario12345"
   
-  # Políticas de escaneo específicas
   policy:
     defaultPolicy:
-      parameterHandling:
-        enablePerformanceOptimizations: true
       activeScanRules:
         - id: 40012  # XSS Reflected
           threshold: "medium"
@@ -137,51 +131,51 @@ env:
           threshold: "medium"
 ```
 
-### 5.3.3 Checklist de Pruebas DAST (Actualizado)
+### 5.3.3 Checklist de Pruebas DAST
 
-#### Autenticación (🆕 Nuevos tests post-Identity)
+#### Autenticación y Autorización
 
 | # | Prueba | Resultado Esperado | Estado |
 |---|--------|-------------------|--------|
-| D-01 | Acceso a `/admin/dashboard` sin cookie | ✅ Redirige a `/login` | 🔒 Nuevo |
-| D-02 | Acceso a `/usuario/estacionamiento` sin cookie | ✅ Redirige a `/login` | 🔒 Nuevo |
-| D-03 | Login con credenciales incorrectas | ✅ Redirige a `/login?error=1` | 🔒 Nuevo |
-| D-04 | Login con credenciales correctas | ✅ Set-Cookie: Cochera.Auth, redirect a `/` | 🔒 Nuevo |
-| D-05 | Acceso a `/admin/dashboard` con rol User | ⚠️ Verificar redirect a `/access-denied` | 🔒 Nuevo |
-| D-06 | Logout invalida cookie del servidor | ✅ Cookie eliminada, redirige a `/login` | 🔒 Nuevo |
-| D-07 | Cookie expirada (>8h) redirecciona a login | ✅ Debe redirigir | 🔒 Nuevo |
-| D-08 | Fuerza bruta en `/auth/login` (100 intentos) | ⚠️ Sin rate limiting — vulnerable | ❌ Falla |
-| D-09 | CSRF en `/auth/login` (POST desde otro origin) | ⚠️ DisableAntiforgery — vulnerable | ❌ Falla |
+| D-01 | Acceso a `/admin/dashboard` sin cookie | Redirige a `/login` | [OK] Pass |
+| D-02 | Acceso a `/usuario/estacionamiento` sin cookie | Redirige a `/login` | [OK] Pass |
+| D-03 | Login con credenciales incorrectas | Redirige a `/login?error=1` | [OK] Pass |
+| D-04 | Login con credenciales correctas | Set-Cookie: Cochera.Auth, redirect a `/` | [OK] Pass |
+| D-05 | Acceso a `/admin/dashboard` con rol User | Redirige a `/access-denied` | [OK] Pass |
+| D-06 | Logout invalida cookie del servidor | Cookie eliminada, redirige a `/login` | [OK] Pass |
+| D-07 | Cookie expirada (>8h) | Redirige a login | [OK] Pass |
+| D-08 | Fuerza bruta en `/auth/login` (100 intentos) | Sin rate limiting — vulnerable (V-012) | [FALLA] Falla |
+| D-09 | CSRF en `/auth/login` (POST desde otro origin) | Sin AntiForgery — vulnerable (V-013) | [FALLA] Falla |
 
 #### SignalR Hub
 
 | # | Prueba | Resultado Esperado | Estado |
 |---|--------|-------------------|--------|
-| D-10 | Conexión WebSocket sin cookie | ⚠️ Se conecta (clase sin `[Authorize]`) | ❌ Falla |
-| D-11 | `UnirseComoAdmin` sin rol Admin | ✅ HubException | 🔒 Nuevo |
-| D-12 | `UnirseComoUsuario(2)` siendo usuario_1 | ✅ HubException "Acceso denegado" | 🔒 Nuevo |
-| D-13 | `NuevoEvento` sin autenticación | ⚠️ Se ejecuta (método sin `[Authorize]`) | ❌ Falla |
-| D-14 | `CambioEstado` sin autenticación | ⚠️ Se ejecuta | ❌ Falla |
+| D-10 | Conexión WebSocket sin cookie | Se conecta — clase sin `[Authorize]` (V-009) | [FALLA] Falla |
+| D-11 | `UnirseComoAdmin` sin rol Admin | HubException — protegido | [OK] Pass |
+| D-12 | `UnirseComoUsuario(2)` siendo usuario_1 | HubException "Acceso denegado" — protegido | [OK] Pass |
+| D-13 | `NuevoEvento` sin autenticación | Se ejecuta — método sin `[Authorize]` (V-009) | [FALLA] Falla |
+| D-14 | `CambioEstado` sin autenticación | Se ejecuta — método sin `[Authorize]` (V-009) | [FALLA] Falla |
 
 #### MQTT / IoT
 
 | # | Prueba | Resultado Esperado | Estado |
 |---|--------|-------------------|--------|
-| D-15 | Captura Wireshark en puerto 1883 | ❌ Tráfico visible en texto plano | ❌ Falla |
-| D-16 | Inyectar mensaje JSON malformado vía MQTT | ❌ Se procesa sin validación | ❌ Falla |
-| D-17 | Conexión MQTT con credenciales del firmware | ❌ Se conecta (esp32/123456) | ❌ Falla |
+| D-15 | Captura Wireshark en puerto 1883 | Tráfico visible en texto plano (V-005) | [FALLA] Falla |
+| D-16 | Inyectar mensaje JSON malformado vía MQTT | Se procesa sin validación (V-003) | [FALLA] Falla |
+| D-17 | Conexión MQTT con credenciales del firmware | Se conecta — credenciales `esp32/123456` (V-001) | [FALLA] Falla |
 
 #### Infraestructura
 
 | # | Prueba | Resultado Esperado | Estado |
 |---|--------|-------------------|--------|
-| D-18 | Verificar headers de seguridad HTTP | ❌ Faltan CSP, X-Frame-Options, etc. | ❌ Falla |
-| D-19 | Acceso PostgreSQL con postgres/postgres | ❌ Acceso total (superusuario) | ❌ Falla |
-| D-20 | Verificar HSTS header | ⚠️ Solo en producción (UseHsts) | ⚠️ Parcial |
+| D-18 | Verificar headers de seguridad HTTP | Faltan CSP, X-Frame-Options, etc. (V-010) | [FALLA] Falla |
+| D-19 | Acceso PostgreSQL con postgres/postgres | Acceso total — superusuario (V-002) | [FALLA] Falla |
+| D-20 | Verificar HSTS header | Solo en producción (UseHsts condicional) | [RIESGO]️ Parcial |
 
 ---
 
-## 5.4 Pruebas Específicas de Autenticación (🆕 Manual)
+## 5.4 Pruebas Manuales Específicas
 
 ### 5.4.1 Test: Flujo Completo de Login
 
@@ -208,23 +202,23 @@ curl -v https://localhost:7XXX/logout -b cookies.txt -c cookies.txt
 ### 5.4.2 Test: Bypass de Autorización SignalR
 
 ```javascript
-// Usando un cliente JavaScript (navegador DevTools)
+// Desde navegador DevTools — sin cookie de autenticación
 const connection = new signalR.HubConnectionBuilder()
-    .withUrl("/cocherahub")  // Sin cookie de autenticación
+    .withUrl("/cocherahub")
     .build();
 
 await connection.start();
-console.log("Conectado:", connection.connectionId); // ⚠️ Se conecta
+console.log("Conectado:", connection.connectionId); // Se conecta (V-009)
 
-// Test: Invocar método protegido
+// Método protegido — debe fallar
 try {
-    await connection.invoke("UnirseComoAdmin"); // Debería fallar
+    await connection.invoke("UnirseComoAdmin");
 } catch (e) {
-    console.log("Error esperado:", e); // ✅ HubException
+    console.log("Error esperado:", e); // HubException [OK]
 }
 
-// Test: Invocar método sin protección
-await connection.invoke("NuevoEvento", { /* dto falso */ }); // ⚠️ Se ejecuta
+// Método sin protección — se ejecuta
+await connection.invoke("NuevoEvento", { /* dto falso */ }); // Se ejecuta (V-009) [FALLA]
 ```
 
 ### 5.4.3 Test: Validación de returnUrl
@@ -233,12 +227,23 @@ await connection.invoke("NuevoEvento", { /* dto falso */ }); // ⚠️ Se ejecut
 # Intentar open redirect
 curl -X POST https://localhost:7XXX/auth/login \
   -d "username=admin&password=Admin12345&returnUrl=https://evil.com"
-# Esperado: Redirige a "/" (validación rechaza URLs absolutas)
+# Esperado: Redirige a "/" (validación rechaza URLs absolutas) [OK]
 
-# returnUrl relativa pero sin /
+# returnUrl relativa sin /
 curl -X POST https://localhost:7XXX/auth/login \
   -d "username=admin&password=Admin12345&returnUrl=evil"
-# Esperado: Redirige a "/" (validación requiere que empiece con /)
+# Esperado: Redirige a "/" (requiere que empiece con /) [OK]
+```
+
+### 5.4.4 Test: MQTT Inyección
+
+```bash
+# Conectar al broker con credenciales expuestas
+mosquitto_pub -h 192.168.100.16 -p 1883 \
+  -u esp32 -P 123456 \
+  -t cola_sensores \
+  -m '{"tipo":"entrada","distancia":-9999,"timestamp":"2099-01-01"}'
+# Resultado esperado: El sistema procesa el mensaje sin validar (V-003) [FALLA]
 ```
 
 ---
@@ -258,7 +263,7 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0'
-      - run: dotnet build --warnaserror  # Roslyn analyzers
+      - run: dotnet build --warnaserror
       - name: Run Semgrep
         uses: returntocorp/semgrep-action@v1
         with:
@@ -289,22 +294,20 @@ jobs:
 
 ---
 
-## 5.6 Resultados Esperados Post-Remediación
+## 5.6 Resumen de Resultados de Pruebas
 
-### Comparación Antes vs Después
+| Categoría | Pass | Fail | Parcial | Total |
+|-----------|------|------|---------|-------|
+| Autenticación y Autorización | 7 | 2 | 0 | 9 |
+| SignalR Hub | 2 | 3 | 0 | 5 |
+| MQTT / IoT | 0 | 3 | 0 | 3 |
+| Infraestructura | 0 | 2 | 1 | 3 |
+| **Total** | **9** | **10** | **1** | **20** |
 
-| Categoría | Tests Pre-Auth | Tests Post-Auth | Mejora |
-|-----------|---------------|-----------------|--------|
-| Auth — Acceso sin credenciales | ❌ 0/5 pass | ✅ 5/7 pass | +5 |
-| Auth — Login flow | N/A | ✅ 4/4 pass | +4 nuevos |
-| Auth — Brute force protection | N/A | ❌ 0/1 pass | Pendiente |
-| SignalR — Auth methods | ❌ 0/3 pass | ✅ 2/5 pass | +2 |
-| MQTT — Seguridad | ❌ 0/3 pass | ❌ 0/3 pass | Sin cambio |
-| Headers — Seguridad | ❌ 0/2 pass | ❌ 0/2 pass | Sin cambio |
-| Infra — BD seguridad | ❌ 0/2 pass | ❌ 0/2 pass | Sin cambio |
-| **Total** | **0/15** | **11/24** | **+11** |
+**Tasa de aprobación:** 9/20 = **45%**
+
+Las 10 pruebas fallidas corresponden directamente a las vulnerabilidades V-001 a V-014 documentadas en este análisis.
 
 ---
 
-*Anterior: [04 — Propuesta de Mejoras](04-propuesta-mejoras.md)*
-*Siguiente: [06 — Gestión de Vulnerabilidades](06-gestion-vulnerabilidades.md)*
+

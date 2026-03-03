@@ -24,10 +24,10 @@
 else
 {
     <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="rz-mb-4">
-        <RadzenIcon Icon="garage" /> Gestión de Cajones
+        <span class="icon-text" >[CAJON]</span> Gestión de Cajones
     </RadzenText>
 
-    <RadzenButton Icon="refresh" Text="Actualizar" Click="@LoadCajones" class="rz-mb-4" />
+    <RadzenButton Text="Actualizar" Click="@LoadCajones" class="rz-mb-4" />
 
     <RadzenRow Gap="1rem">
         @foreach (var cajon in cajones)
@@ -37,17 +37,17 @@ else
                     <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
                         <div>
                             <RadzenText TextStyle="TextStyle.H4">
-                                <RadzenIcon Icon="garage" /> Cajón @cajon.Numero
+                                <span class="icon-text" >[CAJON]</span> Cajón @cajon.Numero
                             </RadzenText>
                             <RadzenText TextStyle="TextStyle.Body1" class="rz-mt-2">
                                 Estado: 
                                 @if (cajon.Estado == EstadoCajon.Libre)
                                 {
-                                    <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="✅ Libre" />
+                                    <RadzenBadge BadgeStyle="BadgeStyle.Success" Text="OK Libre" />
                                 }
                                 else
                                 {
-                                    <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="🚗 Ocupado" />
+                                    <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="VEHICULO Ocupado" />
                                 }
                             </RadzenText>
                             @if (cajon.UltimoCambioEstado.HasValue)
@@ -60,11 +60,11 @@ else
                         <div style="font-size: 5rem;">
                             @if (cajon.Estado == EstadoCajon.Ocupado)
                             {
-                                <span>🚗</span>
+                                <span>VEHICULO</span>
                             }
                             else
                             {
-                                <span>🅿️</span>
+                                <span>SISTEMA</span>
                             }
                         </div>
                     </RadzenStack>
@@ -75,7 +75,7 @@ else
 
     <RadzenCard class="rz-shadow-3 rz-mt-4">
         <RadzenText TextStyle="TextStyle.H5" class="rz-mb-4">
-            <RadzenIcon Icon="info" /> Información de Cajones
+            <span class="icon-text" >[INFO]</span> Información de Cajones
         </RadzenText>
         <RadzenDataGrid Data="@cajones" TItem="CajonDto">
             <Columns>
@@ -90,7 +90,7 @@ else
 
     <RadzenCard class="rz-shadow-2 rz-mt-4">
         <RadzenText TextStyle="TextStyle.H6">
-            <RadzenIcon Icon="summarize" /> Resumen
+            <span class="icon-text" >[RESUMEN]</span> Resumen
         </RadzenText>
         <RadzenText>
             <strong>Libres:</strong> @cajones.Count(c => c.Estado == EstadoCajon.Libre) |
@@ -191,3 +191,5 @@ else
         }
     }
 }
+
+

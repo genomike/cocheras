@@ -32,11 +32,11 @@ else
 {
     <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" class="rz-mb-4">
         <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="rz-mb-0">
-            <RadzenIcon Icon="dashboard" /> Dashboard Administrativo
+            <span class="icon-text" >[PANEL]</span> Dashboard Administrativo
         </RadzenText>
         <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
-            <RadzenButton Icon="refresh" Text="Actualizar" ButtonStyle="ButtonStyle.Light" Click="@LoadDashboardSafe" />
-            <RadzenButton Icon="add_circle" Text="ABRIR POPUP" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Large"
+            <RadzenButton Text="Actualizar" ButtonStyle="ButtonStyle.Light" Click="@LoadDashboardSafe" />
+            <RadzenButton Text="ABRIR POPUP" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Large"
                 Click="@(() => MostrarPopupMovimiento(true, null))" />
         </RadzenStack>
     </RadzenStack>
@@ -48,7 +48,7 @@ else
     else if (!string.IsNullOrWhiteSpace(loadError) || dashboard == null)
     {
         <RadzenAlert AlertStyle="AlertStyle.Warning">@loadError</RadzenAlert>
-        <RadzenButton Icon="refresh" Text="Reintentar" ButtonStyle="ButtonStyle.Primary" Click="@LoadDashboardSafe" class="rz-mt-2" />
+        <RadzenButton Text="Reintentar" ButtonStyle="ButtonStyle.Primary" Click="@LoadDashboardSafe" class="rz-mt-2" />
     }
     else
     {
@@ -56,7 +56,7 @@ else
             <RadzenColumn Size="12" SizeMD="3">
                 <RadzenCard class="rz-shadow-3">
                     <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
-                        <RadzenIcon Icon="local_parking" Style="font-size: 3rem; color: var(--rz-primary);" />
+                        <span class="icon-text" Style="font-size: 3rem; color: var(--rz-primary);" >[CAJON]</span>
                         <div>
                             <RadzenText TextStyle="TextStyle.Overline" class="rz-mb-0">Estado Cochera</RadzenText>
                             <RadzenText TextStyle="TextStyle.H4" class="rz-mb-0">
@@ -76,7 +76,7 @@ else
             <RadzenColumn Size="12" SizeMD="3">
                 <RadzenCard class="rz-shadow-3">
                     <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
-                        <RadzenIcon Icon="receipt" Style="font-size: 3rem; color: var(--rz-success);" />
+                        <span class="icon-text" Style="font-size: 3rem; color: var(--rz-success);" >[RECIBO]</span>
                         <div>
                             <RadzenText TextStyle="TextStyle.Overline" class="rz-mb-0">Sesiones Hoy</RadzenText>
                             <RadzenText TextStyle="TextStyle.H4" class="rz-mb-0">@dashboard.TotalSesionesHoy</RadzenText>
@@ -87,7 +87,7 @@ else
             <RadzenColumn Size="12" SizeMD="3">
                 <RadzenCard class="rz-shadow-3">
                     <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
-                        <RadzenIcon Icon="payments" Style="font-size: 3rem; color: var(--rz-warning);" />
+                        <span class="icon-text" Style="font-size: 3rem; color: var(--rz-warning);" >[PAGO]</span>
                         <div>
                             <RadzenText TextStyle="TextStyle.Overline" class="rz-mb-0">Recaudación Hoy</RadzenText>
                             <RadzenText TextStyle="TextStyle.H4" class="rz-mb-0">S/ @dashboard.RecaudacionHoy.ToString("N2")</RadzenText>
@@ -98,7 +98,7 @@ else
             <RadzenColumn Size="12" SizeMD="3">
                 <RadzenCard class="rz-shadow-3">
                     <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="1rem">
-                        <RadzenIcon Icon="calendar_month" Style="font-size: 3rem; color: var(--rz-info);" />
+                        <span class="icon-text" Style="font-size: 3rem; color: var(--rz-info);" >[MES]</span>
                         <div>
                             <RadzenText TextStyle="TextStyle.Overline" class="rz-mb-0">Recaudación Mes</RadzenText>
                             <RadzenText TextStyle="TextStyle.H4" class="rz-mb-0">S/ @dashboard.RecaudacionMes.ToString("N2")</RadzenText>
@@ -113,23 +113,23 @@ else
                 <RadzenCard class="rz-shadow-3">
                     <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween" class="rz-mb-2">
                         <RadzenText TextStyle="TextStyle.H6" class="rz-mb-0">
-                            <RadzenIcon Icon="garage" /> Estado de Cajones
+                            <span class="icon-text" >[CAJON]</span> Estado de Cajones
                         </RadzenText>
                         <RadzenStack Orientation="Orientation.Horizontal" Gap="0.5rem">
-                            <RadzenButton Icon="clear_all" ButtonStyle="ButtonStyle.Warning" Size="ButtonSize.Small" 
+                            <RadzenButton ButtonStyle="ButtonStyle.Warning" Size="ButtonSize.Small" 
                                 Click="@PurgarColaMqtt" title="Purgar cola MQTT (132 mensajes)" />
-                            <RadzenButton Icon="restart_alt" ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Small" 
+                            <RadzenButton ButtonStyle="ButtonStyle.Danger" Size="ButtonSize.Small" 
                                 Click="@ResetearCajones" title="Resetear estado de cajones a LIBRE" />
                         </RadzenStack>
                     </RadzenStack>
                     <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" JustifyContent="JustifyContent.Center">
                         <div class="cajon @(dashboard.EstadoActual.Cajon1Ocupado ? "ocupado" : "libre")">
                             <RadzenText TextStyle="TextStyle.H5">Cajón 1</RadzenText>
-                            <RadzenText>@(dashboard.EstadoActual.Cajon1Ocupado ? "🚗 Ocupado" : "✅ Libre")</RadzenText>
+                            <RadzenText>@(dashboard.EstadoActual.Cajon1Ocupado ? "VEHICULO Ocupado" : "OK Libre")</RadzenText>
                         </div>
                         <div class="cajon @(dashboard.EstadoActual.Cajon2Ocupado ? "ocupado" : "libre")">
                             <RadzenText TextStyle="TextStyle.H5">Cajón 2</RadzenText>
-                            <RadzenText>@(dashboard.EstadoActual.Cajon2Ocupado ? "🚗 Ocupado" : "✅ Libre")</RadzenText>
+                            <RadzenText>@(dashboard.EstadoActual.Cajon2Ocupado ? "VEHICULO Ocupado" : "OK Libre")</RadzenText>
                         </div>
                     </RadzenStack>
                 </RadzenCard>
@@ -137,7 +137,7 @@ else
             <RadzenColumn Size="12" SizeMD="8">
                 <RadzenCard class="rz-shadow-3">
                     <RadzenText TextStyle="TextStyle.H6" class="rz-mb-2">
-                        <RadzenIcon Icon="show_chart" /> Uso por Hora (Hoy)
+                        <span class="icon-text" >[GRAFICA]</span> Uso por Hora (Hoy)
                     </RadzenText>
                     <RadzenChart>
                         <RadzenColumnSeries Data="@dashboard.UsoPorHora" CategoryProperty="Hora" ValueProperty="CantidadSesiones" Title="Sesiones" />
@@ -156,7 +156,7 @@ else
             <RadzenColumn Size="12" SizeMD="6">
                 <RadzenCard class="rz-shadow-3">
                     <RadzenText TextStyle="TextStyle.H6" class="rz-mb-2">
-                        <RadzenIcon Icon="sensors" /> Últimos Eventos (@dashboard.TotalEventosHoy hoy)
+                        <span class="icon-text" >[SENSOR]</span> Últimos Eventos (@dashboard.TotalEventosHoy hoy)
                     </RadzenText>
                     <RadzenDataList Data="@dashboard.UltimosEventos" TItem="EventoSensorDto">
                         <Template Context="evento">
@@ -176,7 +176,7 @@ else
             <RadzenColumn Size="12" SizeMD="6">
                 <RadzenCard class="rz-shadow-3">
                     <RadzenText TextStyle="TextStyle.H6" class="rz-mb-2">
-                        <RadzenIcon Icon="directions_car" /> Sesiones Activas
+                        <span class="icon-text" >[VEHICULO]</span> Sesiones Activas
                     </RadzenText>
                     @if (dashboard.SesionesActivas.Any())
                     {
@@ -409,7 +409,7 @@ else
         // Escuchar eventos de vehículos y MOSTRAR POPUP INMEDIATAMENTE
         hubConnection.On<EventoSensorDto>("VehiculoDetectadoEnEntrada", async (evento) =>
         {
-            _logger?.LogInformation("🚗🚗🚗 POPUP! VehiculoDetectadoEnEntrada recibido en Dashboard: {Tipo}", evento.TipoEventoTexto);
+            _logger?.LogInformation("VEHICULOVEHICULOVEHICULO POPUP! VehiculoDetectadoEnEntrada recibido en Dashboard: {Tipo}", evento.TipoEventoTexto);
             
             // Solo mostrar popup si la cochera NO está llena (para entrada)
             bool esEntrada = evento.TipoEvento == TipoEvento.MovimientoEntrada;
@@ -422,13 +422,13 @@ else
             
             await InvokeAsync(async () => 
             {
-                NotificationService.Notify(NotificationSeverity.Info, "🚗 VEHÍCULO DETECTADO", "Abriendo popup...");
+                NotificationService.Notify(NotificationSeverity.Info, "VEHICULO VEHÍCULO DETECTADO", "Abriendo popup...");
                 await MostrarPopupMovimiento(esEntrada, evento);
             });
         });
 
         await hubConnection.StartAsync();
-        _logger?.LogInformation("✅ Dashboard conectado a SignalR");
+        _logger?.LogInformation("OK Dashboard conectado a SignalR");
     }
 
     private async Task MostrarPopupMovimiento(bool esEntrada, EventoSensorDto? evento = null)
@@ -489,7 +489,7 @@ else
         }
 
         var result = await DialogService.OpenAsync<DialogoMovimiento>(
-            esEntrada ? "🚗 Vehículo Detectado - ENTRADA" : "🚗 Vehículo Detectado - SALIDA",
+            esEntrada ? "VEHICULO Vehículo Detectado - ENTRADA" : "VEHICULO Vehículo Detectado - SALIDA",
             new Dictionary<string, object>
             {
                 { "ModoEntradaInicial", esEntrada },
@@ -512,7 +512,7 @@ else
             if (movimiento.TipoMovimiento == "Entrada" && movimiento.DatosEntrada != null)
             {
                 await SesionService.IniciarSesionAsync(movimiento.DatosEntrada);
-                NotificationService.Notify(NotificationSeverity.Success, "✅ Entrada Registrada", "Sesión iniciada correctamente");
+                NotificationService.Notify(NotificationSeverity.Success, "OK Entrada Registrada", "Sesión iniciada correctamente");
             }
             else if (movimiento.TipoMovimiento == "Salida" && movimiento.SesionSalida != null)
             {
@@ -522,12 +522,12 @@ else
                 if (sesionCerrada.Estado == Domain.Enums.EstadoSesion.PendientePago)
                 {
                     await SesionNotificationService.NotificarSolicitudCierreSesionAsync(sesionCerrada);
-                    NotificationService.Notify(NotificationSeverity.Success, "✅ Salida Registrada", "Pago solicitado al usuario");
+                    NotificationService.Notify(NotificationSeverity.Success, "OK Salida Registrada", "Pago solicitado al usuario");
                 }
                 else
                 {
                     await SesionNotificationService.NotificarSesionCerradaAsync(sesionCerrada);
-                    NotificationService.Notify(NotificationSeverity.Success, "✅ Sesión Finalizada", "Sesión cerrada completamente");
+                    NotificationService.Notify(NotificationSeverity.Success, "OK Sesión Finalizada", "Sesión cerrada completamente");
                 }
             }
             
@@ -560,3 +560,5 @@ else
         }
     }
 }
+
+

@@ -20,7 +20,7 @@
 else
 {
 <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="rz-mb-4">
-    <RadzenIcon Icon="bar_chart" /> Reportes y Estadísticas
+    <span class="icon-text" >[GRAFICA]</span> Reportes y Estadísticas
 </RadzenText>
 
 <RadzenCard class="rz-mb-4">
@@ -31,36 +31,36 @@ else
         <RadzenFormField Text="Hasta" Variant="Variant.Outlined">
             <RadzenDatePicker @bind-Value="@fechaHasta" DateFormat="dd/MM/yyyy" />
         </RadzenFormField>
-        <RadzenButton Text="Generar Reporte" Icon="assessment" Click="@GenerarReporte" />
-        <RadzenButton Text="Este Mes" Icon="calendar_month" ButtonStyle="ButtonStyle.Light" Click="@FiltrarMes" />
+        <RadzenButton Text="Generar Reporte" Click="@GenerarReporte" />
+        <RadzenButton Text="Este Mes" ButtonStyle="ButtonStyle.Light" Click="@FiltrarMes" />
     </RadzenStack>
 </RadzenCard>
 
 <RadzenRow Gap="1rem" class="rz-mb-4">
     <RadzenColumn Size="12" SizeMD="3">
         <RadzenCard class="rz-shadow-3" Style="text-align: center;">
-            <RadzenIcon Icon="receipt" Style="font-size: 2rem; color: var(--rz-primary);" />
+            <span class="icon-text" Style="font-size: 2rem; color: var(--rz-primary);" >[RECIBO]</span>
             <RadzenText TextStyle="TextStyle.Overline">Total Sesiones</RadzenText>
             <RadzenText TextStyle="TextStyle.H3">@totalSesiones</RadzenText>
         </RadzenCard>
     </RadzenColumn>
     <RadzenColumn Size="12" SizeMD="3">
         <RadzenCard class="rz-shadow-3" Style="text-align: center;">
-            <RadzenIcon Icon="schedule" Style="font-size: 2rem; color: var(--rz-info);" />
+            <span class="icon-text" Style="font-size: 2rem; color: var(--rz-info);" >[HORA]</span>
             <RadzenText TextStyle="TextStyle.Overline">Minutos Totales</RadzenText>
             <RadzenText TextStyle="TextStyle.H3">@totalMinutos</RadzenText>
         </RadzenCard>
     </RadzenColumn>
     <RadzenColumn Size="12" SizeMD="3">
         <RadzenCard class="rz-shadow-3" Style="text-align: center;">
-            <RadzenIcon Icon="payments" Style="font-size: 2rem; color: var(--rz-success);" />
+            <span class="icon-text" Style="font-size: 2rem; color: var(--rz-success);" >[PAGO]</span>
             <RadzenText TextStyle="TextStyle.Overline">Recaudación Total</RadzenText>
             <RadzenText TextStyle="TextStyle.H3">S/ @totalRecaudacion.ToString("N2")</RadzenText>
         </RadzenCard>
     </RadzenColumn>
     <RadzenColumn Size="12" SizeMD="3">
         <RadzenCard class="rz-shadow-3" Style="text-align: center;">
-            <RadzenIcon Icon="trending_up" Style="font-size: 2rem; color: var(--rz-warning);" />
+            <span class="icon-text" Style="font-size: 2rem; color: var(--rz-warning);" >[TENDENCIA]</span>
             <RadzenText TextStyle="TextStyle.Overline">Promedio/Día</RadzenText>
             <RadzenText TextStyle="TextStyle.H3">S/ @promedioDia.ToString("N2")</RadzenText>
         </RadzenCard>
@@ -71,7 +71,7 @@ else
     <RadzenColumn Size="12" SizeMD="6">
         <RadzenCard class="rz-shadow-3">
             <RadzenText TextStyle="TextStyle.H6" class="rz-mb-2">
-                <RadzenIcon Icon="show_chart" /> Recaudación por Día
+                <span class="icon-text" >[GRAFICA]</span> Recaudación por Día
             </RadzenText>
             <RadzenChart Style="height: 300px;">
                 <RadzenLineSeries Data="@datosPorDia" CategoryProperty="FechaTexto" ValueProperty="Recaudacion" Title="Recaudación" Smooth="true">
@@ -90,7 +90,7 @@ else
     <RadzenColumn Size="12" SizeMD="6">
         <RadzenCard class="rz-shadow-3">
             <RadzenText TextStyle="TextStyle.H6" class="rz-mb-2">
-                <RadzenIcon Icon="bar_chart" /> Sesiones por Día
+                <span class="icon-text" >[GRAFICA]</span> Sesiones por Día
             </RadzenText>
             <RadzenChart Style="height: 300px;">
                 <RadzenColumnSeries Data="@datosPorDia" CategoryProperty="FechaTexto" ValueProperty="CantidadSesiones" Title="Sesiones">
@@ -112,7 +112,7 @@ else
     <RadzenColumn Size="12">
         <RadzenCard class="rz-shadow-3">
             <RadzenText TextStyle="TextStyle.H6" class="rz-mb-2">
-                <RadzenIcon Icon="pie_chart" /> Distribución de Uso por Hora (Promedio)
+                <span class="icon-text" >[GRAFICA]</span> Distribución de Uso por Hora (Promedio)
             </RadzenText>
             <RadzenChart Style="height: 300px;">
                 <RadzenAreaSeries Data="@datosPorHora" CategoryProperty="Hora" ValueProperty="CantidadSesiones" Title="Sesiones" Smooth="true" />
@@ -203,3 +203,5 @@ else
         public decimal Recaudacion { get; set; }
     }
 }
+
+

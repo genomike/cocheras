@@ -29,16 +29,16 @@
 else
 {
     <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="rz-mb-4">
-        <RadzenIcon Icon="directions_car" /> Gestión de Entrada/Salida
+        <span class="icon-text" >[VEHICULO]</span> Gestión de Entrada/Salida
     </RadzenText>
 
     <!-- Barra de Acciones Rápidas -->
     <RadzenCard class="rz-mb-4 rz-p-3">
         <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
             <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem">
-                <RadzenButton Text="Nuevo Movimiento" Icon="add_circle" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Large"
+                <RadzenButton Text="Nuevo Movimiento" ButtonStyle="ButtonStyle.Success" Size="ButtonSize.Large"
                     Click="@(() => MostrarDialogoMovimiento(true, null))" />
-                <RadzenButton Text="Actualizar" Icon="refresh" ButtonStyle="ButtonStyle.Light"
+                <RadzenButton Text="Actualizar" ButtonStyle="ButtonStyle.Light"
                     Click="@RefrescarTodo" />
             </RadzenStack>
             <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-disabled-color);">
@@ -51,7 +51,7 @@ else
     <RadzenCard class="@GetNotificacionClass()">
         <RadzenStack Orientation="Orientation.Horizontal" JustifyContent="JustifyContent.SpaceBetween" AlignItems="AlignItems.Center" class="rz-mb-2">
             <RadzenText TextStyle="TextStyle.H5">
-                <RadzenIcon Icon="notifications" /> Notificaciones de Vehículos 
+                <span class="icon-text" >[ALERTA]</span> Notificaciones de Vehículos 
                 @if (notificacionesVehiculos.Any())
                 {
                     <RadzenBadge BadgeStyle="BadgeStyle.Danger" Text="@notificacionesVehiculos.Count.ToString()" />
@@ -59,7 +59,7 @@ else
             </RadzenText>
             @if (notificacionesVehiculos.Any())
             {
-                <RadzenButton Text="Limpiar Todo" Icon="clear_all" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
+                <RadzenButton Text="Limpiar Todo" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
                     Click="@LimpiarNotificaciones" />
             }
         </RadzenStack>
@@ -73,11 +73,11 @@ else
                         <RadzenRow AlignItems="AlignItems.Center" JustifyContent="JustifyContent.SpaceBetween">
                             <RadzenColumn Size="8">
                                 <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" AlignItems="AlignItems.Center">
-                                    <RadzenIcon Icon="@(notif.TipoEvento == TipoEvento.MovimientoEntrada ? "login" : "logout")" 
-                                        Style="font-size: 2rem;" />
+                                    <span class="icon-text" 
+                                        Style="font-size: 2rem;" >[ROL]</span>
                                     <div>
                                         <RadzenText TextStyle="TextStyle.Body1">
-                                            <strong>@(notif.TipoEvento == TipoEvento.MovimientoEntrada ? "🚗 Vehículo entrando" : "🚗 Vehículo saliendo")</strong>
+                                            <strong>@(notif.TipoEvento == TipoEvento.MovimientoEntrada ? "VEHICULO Vehículo entrando" : "VEHICULO Vehículo saliendo")</strong>
                                         </RadzenText>
                                         <RadzenText TextStyle="TextStyle.Caption" Style="color: var(--rz-text-disabled-color);">
                                             @notif.FechaCreacion.ToString("HH:mm:ss") - @notif.Detalle
@@ -86,9 +86,9 @@ else
                                 </RadzenStack>
                             </RadzenColumn>
                             <RadzenColumn Size="4" Style="text-align: right;">
-                                <RadzenButton Text="Gestionar" Icon="settings" ButtonStyle="ButtonStyle.Info"
+                                <RadzenButton Text="Gestionar" ButtonStyle="ButtonStyle.Info"
                                     Click="@(() => MostrarDialogoMovimiento(notif.TipoEvento == TipoEvento.MovimientoEntrada, notif))" />
-                                <RadzenButton Icon="close" ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
+                                <RadzenButton ButtonStyle="ButtonStyle.Light" Size="ButtonSize.Small"
                                     Click="@(() => DescartarNotificacion(notif))" Style="margin-left: 0.5rem;" />
                             </RadzenColumn>
                         </RadzenRow>
@@ -109,7 +109,7 @@ else
         <RadzenColumn Size="12" SizeMD="6">
             <RadzenCard class="rz-shadow-3">
                 <RadzenText TextStyle="TextStyle.H5" class="rz-mb-4">
-                    <RadzenIcon Icon="directions_car" /> Sesiones Activas
+                    <span class="icon-text" >[VEHICULO]</span> Sesiones Activas
                     <RadzenBadge BadgeStyle="BadgeStyle.Info" Text="@sesionesActivas.Count.ToString()" />
                 </RadzenText>
                 
@@ -127,7 +127,7 @@ else
                                         </RadzenText>
                                     </RadzenColumn>
                                     <RadzenColumn Size="4" Style="text-align: right;">
-                                        <RadzenButton Text="Solicitar Salida" Icon="exit_to_app" Size="ButtonSize.Small"
+                                        <RadzenButton Text="Solicitar Salida" Size="ButtonSize.Small"
                                             ButtonStyle="ButtonStyle.Warning"
                                             Click="@(() => SolicitarCierreSesion(sesion))" />
                                     </RadzenColumn>
@@ -148,7 +148,7 @@ else
         <RadzenColumn Size="12" SizeMD="6">
             <RadzenCard class="rz-shadow-3">
                 <RadzenText TextStyle="TextStyle.H5" class="rz-mb-4">
-                    <RadzenIcon Icon="payment" /> Pendientes de Pago
+                    <span class="icon-text" >[PAGO]</span> Pendientes de Pago
                     <RadzenBadge BadgeStyle="BadgeStyle.Warning" Text="@sesionesPendientes.Count.ToString()" />
                 </RadzenText>
                 
@@ -174,7 +174,7 @@ else
                                     <RadzenColumn Size="4" Style="text-align: right;">
                                         @if (sesion.TienePago)
                                         {
-                                            <RadzenButton Text="Cerrar Sesión" Icon="check" Size="ButtonSize.Small"
+                                            <RadzenButton Text="Cerrar Sesión" Size="ButtonSize.Small"
                                                 ButtonStyle="ButtonStyle.Success"
                                                 Click="@(() => CerrarSesion(sesion))" />
                                         }
@@ -397,7 +397,7 @@ else
             var esSalida = evento.TipoEvento == TipoEvento.VehiculoSalio;
             
             NotificationService.Notify(NotificationSeverity.Warning, 
-                esEntrada ? "🚗 Vehículo entrando" : "🚗 Vehículo saliendo", 
+                esEntrada ? "VEHICULO Vehículo entrando" : "VEHICULO Vehículo saliendo", 
                 evento.Detalle);
             
             // Abrir automáticamente el diálogo unificado
@@ -503,7 +503,7 @@ else
 
         // Mostrar diálogo unificado
         var result = await DialogService.OpenAsync<DialogoMovimiento>(
-            esEntrada ? "🚗 Registrar Movimiento - Entrada" : "🚗 Registrar Movimiento - Salida",
+            esEntrada ? "VEHICULO Registrar Movimiento - Entrada" : "VEHICULO Registrar Movimiento - Salida",
             new Dictionary<string, object>
             {
                 { "UsuariosDisponibles", usuariosDisponibles },
@@ -531,7 +531,7 @@ else
                     
                     await SesionNotificationService.NotificarNuevaSesionAsync(sesion);
                     
-                    NotificationService.Notify(NotificationSeverity.Success, "✅ Sesión iniciada", 
+                    NotificationService.Notify(NotificationSeverity.Success, "OK Sesión iniciada", 
                         $"Usuario {sesion.UsuarioNombre} en Cajón {sesion.CajonNumero}");
                 }
                 catch (Exception ex)
@@ -591,7 +591,7 @@ else
             // Notificar via SignalR
             await SesionNotificationService.NotificarSesionCerradaAsync(sesionCerrada);
             
-            NotificationService.Notify(NotificationSeverity.Success, "✅ Sesión cerrada", 
+            NotificationService.Notify(NotificationSeverity.Success, "OK Sesión cerrada", 
                 $"Sesión de {sesion.UsuarioNombre} cerrada exitosamente. Cajón {sesion.CajonNumero} liberado.");
             
             StateHasChanged();
@@ -611,3 +611,5 @@ else
         }
     }
 }
+
+

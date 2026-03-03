@@ -23,14 +23,14 @@
 else
 {
     <RadzenText TextStyle="TextStyle.H3" TagName="TagName.H1" class="rz-mb-4">
-        <RadzenIcon Icon="sensors" /> Eventos de Sensores
+        <span class="icon-text" >[SENSOR]</span> Eventos de Sensores
     </RadzenText>
 
     <RadzenRow Gap="1rem" class="rz-mb-4">
         <RadzenColumn Size="12" SizeMD="3">
             <RadzenCard class="rz-shadow-2">
                 <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.5rem">
-                    <RadzenIcon Icon="event" Style="font-size: 2rem; color: var(--rz-primary);" />
+                    <span class="icon-text" Style="font-size: 2rem; color: var(--rz-primary);" >[EVENTO]</span>
                     <div>
                         <RadzenText TextStyle="TextStyle.Caption">Total Eventos Hoy</RadzenText>
                         <RadzenText TextStyle="TextStyle.H5">@totalEventosHoy</RadzenText>
@@ -39,7 +39,7 @@ else
             </RadzenCard>
         </RadzenColumn>
         <RadzenColumn Size="12" SizeMD="9">
-            <RadzenButton Icon="refresh" Text="Actualizar" Click="@LoadEventos" />
+            <RadzenButton Text="Actualizar" Click="@LoadEventos" />
         </RadzenColumn>
     </RadzenRow>
 
@@ -59,11 +59,11 @@ else
                     <Template Context="evento">
                         @if (evento.EstadoCajon1 == "ocupado")
                         {
-                            <RadzenIcon Icon="directions_car" Style="color: var(--rz-danger);" />
+                            <span class="icon-text" Style="color: var(--rz-danger);" >[VEHICULO]</span>
                         }
                         else
                         {
-                            <RadzenIcon Icon="check_circle" Style="color: var(--rz-success);" />
+                            <span class="icon-text" Style="color: var(--rz-success);" >[OK]</span>
                         }
                     </Template>
                 </RadzenDataGridColumn>
@@ -71,11 +71,11 @@ else
                     <Template Context="evento">
                         @if (evento.EstadoCajon2 == "ocupado")
                         {
-                            <RadzenIcon Icon="directions_car" Style="color: var(--rz-danger);" />
+                            <span class="icon-text" Style="color: var(--rz-danger);" >[VEHICULO]</span>
                         }
                         else
                         {
-                            <RadzenIcon Icon="check_circle" Style="color: var(--rz-success);" />
+                            <span class="icon-text" Style="color: var(--rz-success);" >[OK]</span>
                         }
                     </Template>
                 </RadzenDataGridColumn>
@@ -159,3 +159,5 @@ else
         }
     }
 }
+
+

@@ -31,7 +31,7 @@
 
     <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" JustifyContent="JustifyContent.End">
         <RadzenButton Text="Cancelar" ButtonStyle="ButtonStyle.Light" Click="@Cancelar" />
-        <RadzenButton Text="Registrar Entrada" Icon="login" ButtonStyle="ButtonStyle.Success" 
+        <RadzenButton Text="Registrar Entrada" ButtonStyle="ButtonStyle.Success" 
             Disabled="@(usuarioSeleccionado <= 0 || cajonSeleccionado <= 0)"
             Click="@Confirmar" />
     </RadzenStack>
@@ -59,3 +59,5 @@
         DialogService.Close(request);
     }
 }
+
+

@@ -45,7 +45,7 @@
 
     <RadzenStack Orientation="Orientation.Horizontal" Gap="1rem" JustifyContent="JustifyContent.End">
         <RadzenButton Text="Cancelar" ButtonStyle="ButtonStyle.Light" Click="@Cancelar" />
-        <RadzenButton Text="Solicitar Salida" Icon="exit_to_app" ButtonStyle="ButtonStyle.Warning" 
+        <RadzenButton Text="Solicitar Salida" ButtonStyle="ButtonStyle.Warning" 
             Disabled="@(sesionSeleccionada == null)"
             Click="@Confirmar" />
     </RadzenStack>
@@ -90,3 +90,5 @@
         DialogService.Close(sesionSeleccionada);
     }
 }
+
+
